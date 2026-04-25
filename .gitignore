@@ -1,0 +1,66 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+.idea/modules.xml
+.idea/workspace.xml
+.idea/misc.xml
+
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+# Spring Boot
+*.log
+logs/
+spring-pid
+
+# Environment / secrets — NEVER commit these
+.env
+application-local.yml
+application-prod.yml
+application-secrets.yml
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Compiled
+*.class
+*.jar
+*.war
+*.ear
+
+# Package lock (Maven handles deps)
+package-lock.json
+node_modules/
