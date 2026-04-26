@@ -47,7 +47,10 @@ application-local.yml
 application-prod.yml
 application-secrets.yml
 *.env
-
+# Application config with credentials
+src/main/resources/application.yml
+src/main/resources/application*.yml
+src/main/resources/application*.properties
 # OS
 .DS_Store
 Thumbs.db
