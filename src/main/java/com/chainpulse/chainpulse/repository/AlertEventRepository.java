@@ -30,7 +30,8 @@ public interface AlertEventRepository extends JpaRepository<AlertEvent, Long> {
 
     // Count active alerts by severity — e.g. how many CRITICAL alerts right now
     Long countByResolvedFalseAndSeverity(SlaRule.AlertSeverity severity);
-
+    // Add this method to AlertEventRepository
+    Long countByResolvedFalseAndSupplierId(Long supplierId);
     /**
      * Check if an alert already exists for this shipment + rule combination
      * within a given time window.

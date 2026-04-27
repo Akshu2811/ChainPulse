@@ -1,5 +1,6 @@
 package com.chainpulse.chainpulse.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -18,6 +19,7 @@ import java.time.LocalDateTime;
 @Data                            // Lombok: auto-generates getters, setters, toString, equals
 @NoArgsConstructor               // Lombok: generates empty constructor (required by JPA)
 @AllArgsConstructor              // Lombok: generates constructor with all fields
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Supplier {
 
     @Id                                                    // This is the primary key

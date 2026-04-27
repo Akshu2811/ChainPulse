@@ -29,7 +29,8 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
     // Find all shipments that are NOT delivered or cancelled
     // These are the "active" shipments ChainPulse monitors
     List<Shipment> findByStatusNotIn(List<ShipmentStatus> statuses);
-
+    // Add this to ShipmentRepository
+    List<Shipment> findByStatusIn(List<ShipmentStatus> statuses);
     /**
      * Custom JPQL query — count how many shipments per supplier
      * are currently delayed or stuck.
