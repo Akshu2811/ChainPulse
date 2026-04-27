@@ -1,34 +1,37 @@
 package com.chainpulse.chainpulse.kafka;
 
 import com.chainpulse.chainpulse.kafka.dto.ShipmentEventDto;
+import com.chainpulse.chainpulse.service.SlaRuleEngine;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
 /**
- * ShipmentEventConsumer — responsible for RECEIVING shipment events from Kafka.
+ * ShipmentEventConsumer — receives shipment events from Kafka.
  *
- * Think of this as the "subscriber" in our system.
- * It listens to the "shipment-events" Kafka topic 24/7.
- * Every time a new message arrives:
- * 1. Receives the raw JSON string from Kafka
- * 2. Converts it back to a ShipmentEventDto object
- * 3. Logs the event (later: passes to SlaRuleEngine for breach evaluation)
+ * Updated in Day 3 to wire into SlaRuleEngine.
+ * Now every received event is evaluated for SLA breaches.
  *
- * @KafkaListener makes this method run automatically
- * whenever a new message appears in the topic.
+ * Flow:
+ * Kafka → consumeShipmentEvent() → SlaRuleEngine.evaluate() → AlertEvent saved
  */
 @Slf4j
 @Service
 public class ShipmentEventConsumer {
 
     /**
-     * ObjectMapper — Jackson's JSON converter.
-     * Converts JSON string → ShipmentEventDto Java object.
-     * Same configuration as in KafkaProducerService —
+     * SlaRuleEngine — injected here so every consumed event
+     * is immediately evaluated for SLA breaches.
+     */
+    @Autowired
+    private SlaRuleEngine slaRuleEngine;
+
+    /**
+     * ObjectMapper — converts JSON string → ShipmentEventDto.
      * JavaTimeModule handles LocalDateTime fields correctly.
      */
     private final ObjectMapper objectMapper;
@@ -40,20 +43,15 @@ public class ShipmentEventConsumer {
     }
 
     /**
-     * consumeShipmentEvent — the main method that processes incoming events.
+     * consumeShipmentEvent — processes every incoming Kafka message.
      *
-     * @KafkaListener tells Spring:
-     * - topics: listen to "shipment-events" topic
-     * - groupId: this consumer belongs to "chainpulse-group"
-     * - containerFactory: use the factory we configured in KafkaConfig
+     * Steps:
+     * 1. Receive raw JSON string from Kafka
+     * 2. Convert JSON → ShipmentEventDto
+     * 3. Log the event
+     * 4. Pass to SlaRuleEngine for breach evaluation
      *
-     * How it works:
-     * 1. Kafka delivers a JSON string message to this method
-     * 2. We convert JSON string → ShipmentEventDto using ObjectMapper
-     * 3. Log the received event with key details
-     * 4. (Day 3) Pass to SlaRuleEngine to check for SLA breaches
-     *
-     * @param message — raw JSON string received from Kafka topic
+     * @param message — raw JSON string from "shipment-events" topic
      */
     @KafkaListener(
             topics = "shipment-events",
@@ -62,26 +60,25 @@ public class ShipmentEventConsumer {
     )
     public void consumeShipmentEvent(String message) {
         try {
-            // Step 1: Convert JSON string back to ShipmentEventDto object
-            ShipmentEventDto eventDto = objectMapper.readValue(message, ShipmentEventDto.class);
+            // Step 1: Convert JSON string → ShipmentEventDto
+            ShipmentEventDto eventDto = objectMapper.readValue(message,
+                    ShipmentEventDto.class);
 
-            // Step 2: Log the received event with key details
+            // Step 2: Log the received event
             log.info("📦 Shipment event received | " +
-                            "Tracking: {} | Supplier: {} | Status: {} | " +
-                            "Route: {} → {} | Expected: {}",
+                            "Tracking: {} | Supplier: {} | Status: {} | Route: {} → {}",
                     eventDto.getTrackingNumber(),
                     eventDto.getSupplierName(),
                     eventDto.getStatus(),
                     eventDto.getOrigin(),
-                    eventDto.getDestination(),
-                    eventDto.getExpectedAt());
+                    eventDto.getDestination());
 
-            // Step 3: TODO — Day 3: pass to SlaRuleEngine
-            // slaRuleEngine.evaluate(eventDto);
+            // Step 3: Pass to SlaRuleEngine — evaluates all active rules
+            // If any rule is breached → AlertEvent is created automatically
+            slaRuleEngine.evaluate(eventDto);
 
         } catch (Exception e) {
-            // If message is malformed or cannot be parsed — log and skip
-            // Don't crash the consumer for one bad message
+            // Bad/corrupt message — log and skip, don't crash the consumer
             log.error("❌ Failed to process shipment event | " +
                             "Raw message: {} | Error: {}",
                     message, e.getMessage());

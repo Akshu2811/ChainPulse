@@ -35,7 +35,7 @@ public class AlertEvent {
      * @ManyToOne — one shipment can have multiple alerts over its lifetime.
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "shipment_id", nullable = false)
+    @JoinColumn(name = "shipment_id", nullable = true)
     private Shipment shipment;
 
     /**
