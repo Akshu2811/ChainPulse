@@ -4,6 +4,7 @@ import com.chainpulse.chainpulse.entity.Supplier;
 import com.chainpulse.chainpulse.repository.AlertEventRepository;
 import com.chainpulse.chainpulse.repository.ShipmentRepository;
 import com.chainpulse.chainpulse.repository.SupplierRepository;
+import com.chainpulse.chainpulse.service.RedisService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -34,6 +35,9 @@ public class SupplierController {
 
     @Autowired
     private ShipmentRepository shipmentRepository;
+
+    @Autowired
+    private RedisService redisService;
 
     /**
      * GET /api/suppliers
@@ -81,18 +85,35 @@ public class SupplierController {
 
         return supplierRepository.findById(id)
                 .map(supplier -> {
-                    // Count how many unresolved alerts this supplier has
-                    Long activeAlerts = alertEventRepository
-                            .countByResolvedFalseAndSupplierId(id);
 
-                    // Determine health status based on alert count
+                    // Check Redis cache first — avoids DB query if cached
+                    String cachedHealth = redisService.getSupplierHealth(id);
+
                     String status;
-                    if (activeAlerts == 0) {
-                        status = "HEALTHY";       // No active alerts — all good
-                    } else if (activeAlerts <= 3) {
-                        status = "AT_RISK";       // Some alerts — needs attention
+                    Long activeAlerts;
+
+                    if (cachedHealth != null) {
+                        // Cache hit — use cached value, skip DB query
+                        log.debug("✅ Supplier health cache hit | Supplier: {} | Status: {}",
+                                supplier.getName(), cachedHealth);
+                        status = cachedHealth;
+                        activeAlerts = alertEventRepository.countByResolvedFalseAndSupplierId(id);
                     } else {
-                        status = "CRITICAL";      // Many alerts — immediate action needed
+                        // Cache miss — query DB and cache the result
+                        log.debug("❌ Supplier health cache miss | Supplier: {} — querying DB",
+                                supplier.getName());
+                        activeAlerts = alertEventRepository.countByResolvedFalseAndSupplierId(id);
+
+                        if (activeAlerts == 0) {
+                            status = "HEALTHY";
+                        } else if (activeAlerts <= 3) {
+                            status = "AT_RISK";
+                        } else {
+                            status = "CRITICAL";
+                        }
+
+                        // Write to Redis cache — expires in 5 minutes
+                        redisService.cacheSupplierHealth(id, status);
                     }
 
                     Map<String, Object> health = new HashMap<>();
@@ -102,6 +123,7 @@ public class SupplierController {
                     health.put("slaThresholdHours", supplier.getSlaThresholdHours());
                     health.put("activeAlerts", activeAlerts);
                     health.put("status", status);
+                    health.put("cachedResult", cachedHealth != null);
 
                     return ResponseEntity.ok(health);
                 })

@@ -67,3 +67,6 @@ docker-compose.override.yml
 # Package lock (Maven handles deps)
 package-lock.json
 node_modules/
+
+# Local dev tools
+cascade-devlog-prompt.txt

@@ -1,6 +1,7 @@
 package com.chainpulse.chainpulse.kafka;
 
 import com.chainpulse.chainpulse.kafka.dto.ShipmentEventDto;
+import com.chainpulse.chainpulse.service.RedisService;
 import com.chainpulse.chainpulse.service.SlaRuleEngine;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -29,6 +30,9 @@ public class ShipmentEventConsumer {
      */
     @Autowired
     private SlaRuleEngine slaRuleEngine;
+
+    @Autowired
+    private RedisService redisService;
 
     /**
      * ObjectMapper — converts JSON string → ShipmentEventDto.
@@ -76,6 +80,13 @@ public class ShipmentEventConsumer {
             // Step 3: Pass to SlaRuleEngine — evaluates all active rules
             // If any rule is breached → AlertEvent is created automatically
             slaRuleEngine.evaluate(eventDto);
+
+            // Cache the latest shipment status in Redis
+// This keeps Redis up to date with every Kafka event
+            redisService.cacheShipmentStatus(
+                    eventDto.getTrackingNumber(),
+                    eventDto.getStatus().name()
+            );
 
         } catch (Exception e) {
             // Bad/corrupt message — log and skip, don't crash the consumer

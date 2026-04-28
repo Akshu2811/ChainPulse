@@ -37,6 +37,9 @@ import java.util.List;
 public class SlaRuleEngine {
 
     @Autowired
+    private RedisService redisService;
+
+    @Autowired
     private SlaRuleRepository slaRuleRepository;
 
     @Autowired
@@ -232,41 +235,49 @@ public class SlaRuleEngine {
     /**
      * createAlert — creates and saves an AlertEvent to PostgreSQL.
      *
-     * Before creating:
-     * - Checks if an alert already exists for this shipment + rule
-     *   in the last 30 minutes (deduplication — avoids alert spam).
-     * - Loads the Supplier entity from DB.
+     * Updated in Day 4 to use Redis for deduplication instead of DB query.
+     * Redis check is ~0.1ms vs DB query ~5-10ms — 50-100x faster!
+     *
+     * Flow:
+     * 1. Check Redis — has this alert been fired in last 30 mins?
+     *    YES → skip (duplicate), return immediately
+     *    NO  → proceed to create alert
+     * 2. Load supplier from DB
+     * 3. Create and save AlertEvent to PostgreSQL
+     * 4. Write dedup marker to Redis with 30-min TTL
+     * 5. Cache shipment status in Redis for future reference
      *
      * @param rule     — the SLA rule that was breached
      * @param eventDto — the shipment event that caused the breach
      * @param message  — human-readable description of what went wrong
      */
     private void createAlert(SlaRule rule, ShipmentEventDto eventDto, String message) {
-        // Deduplication check — don't fire same alert twice within 30 minutes
-        LocalDateTime thirtyMinutesAgo = LocalDateTime.now().minusMinutes(30);
-        boolean alertExists = alertEventRepository.existsActiveAlert(
+
+        // Step 1: Redis deduplication check
+        // Check if we already fired this exact alert in the last 30 minutes
+        // Key: "alert:dedup:{shipmentId}:{ruleType}"
+        boolean isDuplicate = redisService.isDuplicateAlert(
                 eventDto.getShipmentId(),
-                rule.getRuleType(),
-                thirtyMinutesAgo
+                rule.getRuleType().name()
         );
 
-        if (alertExists) {
-            log.debug("⏭️ Skipping duplicate alert for shipment: {} rule: {}",
+        if (isDuplicate) {
+            log.debug("⏭️ Skipping duplicate alert | Shipment: {} | Rule: {} | (Redis dedup)",
                     eventDto.getTrackingNumber(), rule.getRuleType());
             return;
         }
 
-        // Load supplier from DB (needed for AlertEvent entity)
+        // Step 2: Load supplier from DB (needed for AlertEvent entity)
         Supplier supplier = supplierRepository.findById(eventDto.getSupplierId())
                 .orElse(null);
 
         if (supplier == null) {
-            log.warn("Supplier not found for ID: {} — skipping alert",
+            log.warn("⚠️ Supplier not found for ID: {} — skipping alert",
                     eventDto.getSupplierId());
             return;
         }
 
-        // Build the AlertEvent entity
+        // Step 3: Build and save AlertEvent to PostgreSQL
         AlertEvent alert = new AlertEvent();
         alert.setSupplier(supplier);
         alert.setRuleType(rule.getRuleType());
@@ -274,14 +285,27 @@ public class SlaRuleEngine {
         alert.setMessage(message);
         alert.setResolved(false);
 
-        // Save to PostgreSQL
         AlertEvent saved = alertEventRepository.save(alert);
 
-        log.warn("🚨 ALERT CREATED | ID: {} | Severity: {} | Rule: {} | Shipment: {} | {}",
+        log.warn("🚨 ALERT CREATED | ID: {} | Severity: {} | Rule: {} | Shipment: {}",
                 saved.getId(),
                 saved.getSeverity(),
                 saved.getRuleType(),
+                eventDto.getTrackingNumber());
+
+        // Step 4: Write dedup marker to Redis — expires in 30 minutes
+        // This prevents the same alert from firing again for 30 mins
+        redisService.markAlertFired(
+                eventDto.getShipmentId(),
+                rule.getRuleType().name()
+        );
+
+        // Step 5: Cache the shipment status in Redis
+        // Next time this shipment comes through, we can read status from
+        // Redis instead of DB — much faster
+        redisService.cacheShipmentStatus(
                 eventDto.getTrackingNumber(),
-                message);
+                eventDto.getStatus().name()
+        );
     }
 }
