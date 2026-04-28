@@ -51,6 +51,9 @@ public class SlaRuleEngine {
     @Autowired
     private ShipmentRepository shipmentRepository;
 
+    @Autowired
+    private AlertBroadcastService alertBroadcastService;
+
     /**
      * evaluate — main method called by ShipmentEventConsumer for every event.
      *
@@ -286,6 +289,9 @@ public class SlaRuleEngine {
         alert.setResolved(false);
 
         AlertEvent saved = alertEventRepository.save(alert);
+
+        // Broadcast to all connected dashboard clients via WebSocket
+        alertBroadcastService.broadcastAlert(saved);
 
         log.warn("🚨 ALERT CREATED | ID: {} | Severity: {} | Rule: {} | Shipment: {}",
                 saved.getId(),
