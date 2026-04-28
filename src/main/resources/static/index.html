@@ -2,9 +2,632 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChainPulse — Supply Chain Disruption Alert Engine</title>
+
+    <!-- Google Fonts — Inter for clean modern look -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- SockJS + STOMP — for WebSocket connection -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+
+    <!-- Chart.js — for disruption trend bar chart -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+    <style>
+        /* ── CSS Variables — dark theme color palette ─────────────────── */
+        :root {
+            --bg-primary:    #0f1117;
+            --bg-secondary:  #1a1f2e;
+            --bg-tertiary:   #252b3b;
+            --border:        rgba(255,255,255,0.07);
+            --text-primary:  #e2e8f0;
+            --text-secondary:#94a3b8;
+            --text-muted:    #64748b;
+            --teal:          #1D9E75;
+            --teal-light:    rgba(29,158,117,0.12);
+            --amber:         #EF9F27;
+            --amber-light:   rgba(239,159,39,0.12);
+            --red:           #E24B4A;
+            --red-light:     rgba(226,75,74,0.12);
+            --blue:          #378ADD;
+            --blue-light:    rgba(55,138,221,0.12);
+            --purple:        #7F77DD;
+        }
+
+        /* ── Reset + Base ─────────────────────────────────────────────── */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            font-size: 14px;
+        }
+
+        /* ── Top Navigation Bar ───────────────────────────────────────── */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 24px;
+            background: var(--bg-secondary);
+            border-bottom: 0.5px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.3px;
+        }
+
+        .logo span { color: var(--teal); }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        /* WebSocket status dot */
+        .ws-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--text-muted);
+            background: var(--bg-tertiary);
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 0.5px solid var(--border);
+        }
+
+        .ws-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            transition: background 0.3s;
+        }
+
+        .ws-dot.connected { background: var(--teal); }
+        .ws-dot.disconnected { background: var(--red); }
+
+        .last-updated {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* ── Main Layout ──────────────────────────────────────────────── */
+        .main {
+            padding: 20px 24px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* ── Metric Cards Row ─────────────────────────────────────────── */
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .metric-card {
+            background: var(--bg-secondary);
+            border: 0.5px solid var(--border);
+            border-radius: 10px;
+            padding: 16px 18px;
+            transition: border-color 0.2s;
+        }
+
+        .metric-card:hover { border-color: rgba(255,255,255,0.15); }
+
+        .metric-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: 600;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .metric-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .metric-card.teal .metric-value { color: var(--teal); }
+        .metric-card.amber .metric-value { color: var(--amber); }
+        .metric-card.red   .metric-value { color: var(--red); }
+        .metric-card.blue  .metric-value { color: var(--blue); }
+
+        /* ── Main Grid — left panel + right panel ─────────────────────── */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 12px;
+        }
+
+        .left-col { display: flex; flex-direction: column; gap: 12px; }
+
+        /* ── Panel base style ─────────────────────────────────────────── */
+        .panel {
+            background: var(--bg-secondary);
+            border: 0.5px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+        }
+
+        .panel-title {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 500;
+            margin-bottom: 14px;
+        }
+
+        /* ── Supplier Health Panel ────────────────────────────────────── */
+        .supplier-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 0.5px solid var(--border);
+        }
+
+        .supplier-row:last-child { border-bottom: none; }
+
+        .supplier-info { flex: 1; min-width: 0; }
+
+        .supplier-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .supplier-meta {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* SLA compliance bar */
+        .sla-bar-wrap {
+            flex: 1;
+            height: 4px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .sla-bar {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.5s ease;
+        }
+
+        .sla-bar.healthy  { background: var(--teal); }
+        .sla-bar.at-risk  { background: var(--amber); }
+        .sla-bar.critical { background: var(--red); }
+
+        /* Status badge */
+        .badge {
+            font-size: 10px;
+            padding: 3px 9px;
+            border-radius: 20px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .badge.healthy  { background: var(--teal-light);  color: var(--teal);  border: 0.5px solid rgba(29,158,117,0.25); }
+        .badge.at-risk  { background: var(--amber-light); color: var(--amber); border: 0.5px solid rgba(239,159,39,0.25); }
+        .badge.critical { background: var(--red-light);   color: var(--red);   border: 0.5px solid rgba(226,75,74,0.25); }
+
+        /* ── Live Alert Feed ──────────────────────────────────────────── */
+        .alert-feed {
+            max-height: 520px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--bg-tertiary) transparent;
+        }
+
+        .alert-item {
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            border-left: 2px solid transparent;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .alert-item.CRITICAL { background: var(--red-light);   border-color: var(--red); }
+        .alert-item.WARNING  { background: var(--amber-light); border-color: var(--amber); }
+        .alert-item.INFO     { background: var(--teal-light);  border-color: var(--teal); }
+
+        .alert-title {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 3px;
+        }
+
+        .alert-meta {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        /* ── Chart Panel ──────────────────────────────────────────────── */
+        .chart-wrap {
+            height: 180px;
+            position: relative;
+        }
+
+        /* ── Loading skeleton ─────────────────────────────────────────── */
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-secondary) 50%, var(--bg-tertiary) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 6px;
+            height: 20px;
+        }
+
+        @keyframes shimmer {
+            0%   { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* ── Responsive ───────────────────────────────────────────────── */
+        @media (max-width: 900px) {
+            .grid    { grid-template-columns: 1fr; }
+            .metrics { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
 </head>
 <body>
+
+<!-- ── Top Navigation Bar ─────────────────────────────────────────────── -->
+<nav class="navbar">
+    <div class="logo">Chain<span>Pulse</span></div>
+    <div class="nav-right">
+        <div class="ws-status">
+            <div class="ws-dot" id="wsDot"></div>
+            <span id="wsStatusText">Connecting...</span>
+        </div>
+        <div class="last-updated" id="lastUpdated">—</div>
+    </div>
+</nav>
+
+<!-- ── Main Content ───────────────────────────────────────────────────── -->
+<div class="main">
+
+    <!-- Metric Cards Row -->
+    <div class="metrics">
+        <div class="metric-card teal">
+            <div class="metric-label">Total Suppliers</div>
+            <div class="metric-value" id="totalSuppliers">—</div>
+            <div class="metric-sub">Monitored logistics partners</div>
+        </div>
+        <div class="metric-card amber">
+            <div class="metric-label">Active Alerts</div>
+            <div class="metric-value" id="activeAlerts">—</div>
+            <div class="metric-sub" id="alertSub">Loading...</div>
+        </div>
+        <div class="metric-card red">
+            <div class="metric-label">Critical Alerts</div>
+            <div class="metric-value" id="criticalAlerts">—</div>
+            <div class="metric-sub">Immediate action required</div>
+        </div>
+        <div class="metric-card blue">
+            <div class="metric-label">Resolved Alerts</div>
+            <div class="metric-value" id="resolvedAlerts">—</div>
+            <div class="metric-sub">Fixed and closed</div>
+        </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid">
+
+        <!-- Left Column -->
+        <div class="left-col">
+
+            <!-- Supplier Health Panel -->
+            <div class="panel">
+                <div class="panel-title">Supplier health</div>
+                <div id="supplierList">
+                    <div class="skeleton" style="margin-bottom:10px"></div>
+                    <div class="skeleton" style="margin-bottom:10px"></div>
+                    <div class="skeleton"></div>
+                </div>
+            </div>
+
+            <!-- Disruption Trend Chart -->
+            <div class="panel">
+                <div class="panel-title">Disruption trend — last 7 days</div>
+                <div class="chart-wrap">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column — Live Alert Feed -->
+        <div class="panel">
+            <div class="panel-title">
+                Live alert feed
+                <span id="alertCount" style="float:right;color:var(--red);font-size:11px"></span>
+            </div>
+            <div class="alert-feed" id="alertFeed">
+                <div class="empty-state">⏳ Waiting for alerts...</div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // ══════════════════════════════════════════════════════════════════════════
+    // ChainPulse Dashboard — JavaScript
+    // ══════════════════════════════════════════════════════════════════════════
+
+    let stompClient = null;
+    let alertCount  = 0;
+    let trendChart  = null;
+
+    // ── Utility: format timestamp ─────────────────────────────────────────────
+    function timeAgo(dateStr) {
+        const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+        if (diff < 60)  return `${diff}s ago`;
+        if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+        return `${Math.floor(diff/3600)}h ago`;
+    }
+
+    function formatTime(dateStr) {
+        return new Date(dateStr).toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+    }
+
+    // ── WebSocket status UI ───────────────────────────────────────────────────
+    function setWsStatus(connected) {
+        const dot  = document.getElementById('wsDot');
+        const text = document.getElementById('wsStatusText');
+        if (connected) {
+            dot.className  = 'ws-dot connected';
+            text.textContent = 'Live — WebSocket connected';
+            text.style.color = 'var(--teal)';
+        } else {
+            dot.className  = 'ws-dot disconnected';
+            text.textContent = 'Disconnected — reconnecting...';
+            text.style.color = 'var(--red)';
+        }
+    }
+
+    // ── Update metric cards ───────────────────────────────────────────────────
+    function updateStats(stats) {
+        document.getElementById('totalSuppliers').textContent  = stats.totalSuppliers  ?? '—';
+        document.getElementById('activeAlerts').textContent    = stats.activeAlerts    ?? '—';
+        document.getElementById('criticalAlerts').textContent  = stats.criticalAlerts  ?? '—';
+        document.getElementById('resolvedAlerts').textContent  = stats.resolvedAlerts  ?? '—';
+        document.getElementById('alertSub').textContent =
+            `${stats.warningAlerts ?? 0} warning · ${stats.criticalAlerts ?? 0} critical`;
+        document.getElementById('lastUpdated').textContent =
+            'Updated ' + new Date().toLocaleTimeString('en-IN');
+    }
+
+    // ── Render supplier health panel ──────────────────────────────────────────
+    function renderSuppliers(suppliers) {
+        const list = document.getElementById('supplierList');
+        if (!suppliers || suppliers.length === 0) {
+            list.innerHTML = '<div class="empty-state">No suppliers found</div>';
+            return;
+        }
+
+        list.innerHTML = suppliers.map(s => {
+            // Calculate fake SLA % based on active alerts for demo
+            // In real system this would come from /api/suppliers/{id}/health
+            const statusClass = s.status ? s.status.toLowerCase().replace('_', '-') : 'healthy';
+            const barWidth = statusClass === 'healthy' ? 90 :
+                statusClass === 'at-risk'  ? 60 : 30;
+
+            return `
+        <div class="supplier-row">
+            <div class="supplier-info">
+                <div class="supplier-name">${s.name}</div>
+                <div class="supplier-meta">${s.location} · SLA: ${s.slaThresholdHours}h</div>
+            </div>
+            <div class="sla-bar-wrap">
+                <div class="sla-bar ${statusClass}" style="width:${barWidth}%"></div>
+            </div>
+            <span class="badge ${statusClass}">${s.status || 'Healthy'}</span>
+        </div>`;
+        }).join('');
+    }
+
+    // ── Prepend alert to live feed ────────────────────────────────────────────
+    function addAlertToFeed(alert) {
+        const feed = document.getElementById('alertFeed');
+
+        // Remove empty state if present
+        const empty = feed.querySelector('.empty-state');
+        if (empty) empty.remove();
+
+        // Build alert card
+        const div = document.createElement('div');
+        div.className = `alert-item ${alert.severity || 'INFO'}`;
+        div.innerHTML = `
+        <div class="alert-title">${alert.ruleType?.replace(/_/g,' ')} — ${alert.supplierName || 'Unknown'}</div>
+        <div class="alert-meta">${alert.message?.substring(0, 80)}...</div>
+        <div class="alert-meta" style="margin-top:3px;opacity:0.6">Just now · ${alert.severity}</div>`;
+
+        // Prepend — newest alert at top
+        feed.insertBefore(div, feed.firstChild);
+
+        // Keep max 50 alerts in feed to avoid memory bloat
+        const items = feed.querySelectorAll('.alert-item');
+        if (items.length > 50) items[items.length - 1].remove();
+
+        // Update alert count badge
+        alertCount++;
+        document.getElementById('alertCount').textContent = `${alertCount} new`;
+    }
+
+    // ── Load trend chart ──────────────────────────────────────────────────────
+    async function loadTrendChart() {
+        try {
+            const res  = await fetch('/api/alerts/stats/trend?days=7');
+            const data = await res.json();
+            const alerts = data.alerts || [];
+
+            // Group alerts by day
+            const days = {};
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const key = d.toLocaleDateString('en-IN', {day:'2-digit', month:'short'});
+                days[key] = 0;
+            }
+
+            alerts.forEach(a => {
+                const key = new Date(a.createdAt)
+                    .toLocaleDateString('en-IN', {day:'2-digit', month:'short'});
+                if (days[key] !== undefined) days[key]++;
+            });
+
+            const labels = Object.keys(days);
+            const values = Object.values(days);
+
+            const ctx = document.getElementById('trendChart').getContext('2d');
+
+            if (trendChart) trendChart.destroy();
+
+            trendChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Alerts',
+                        data: values,
+                        backgroundColor: 'rgba(226,75,74,0.6)',
+                        borderColor: '#E24B4A',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: {
+                            ticks: { color: '#64748b', font: { size: 10 } },
+                            grid:  { color: 'rgba(255,255,255,0.04)' }
+                        },
+                        y: {
+                            ticks: { color: '#64748b', font: { size: 10 } },
+                            grid:  { color: 'rgba(255,255,255,0.04)' },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        } catch (e) {
+            console.error('Chart load failed:', e);
+        }
+    }
+
+    // ── Load initial data from REST APIs ─────────────────────────────────────
+    async function loadInitialData() {
+        try {
+            // Load stats
+            const statsRes = await fetch('/api/stats');
+            const stats    = await statsRes.json();
+            updateStats(stats);
+
+            // Load suppliers
+            const suppRes   = await fetch('/api/suppliers');
+            const suppliers = await suppRes.json();
+            renderSuppliers(suppliers);
+
+            // Load recent alerts into feed
+            const alertRes  = await fetch('/api/alerts/active');
+            const alerts    = await alertRes.json();
+            // Show last 10 recent alerts
+            alerts.slice(-10).reverse().forEach(a => addAlertToFeed({
+                ...a,
+                supplierName: a.supplier?.name,
+            }));
+
+            // Load chart
+            loadTrendChart();
+
+        } catch (e) {
+            console.error('Initial data load failed:', e);
+        }
+    }
+
+    // ── Connect WebSocket via STOMP ───────────────────────────────────────────
+    function connectWebSocket() {
+        const socket = new SockJS('/ws');
+        stompClient  = Stomp.over(socket);
+
+        // Suppress STOMP debug logs in console
+        stompClient.debug = null;
+
+        stompClient.connect({}, function(frame) {
+            setWsStatus(true);
+            console.log('✅ ChainPulse WebSocket connected');
+
+            // Subscribe to live alert feed
+            stompClient.subscribe('/topic/alerts', function(message) {
+                const alert = JSON.parse(message.body);
+                addAlertToFeed(alert);
+            });
+
+            // Subscribe to live stats updates
+            stompClient.subscribe('/topic/stats', function(message) {
+                const stats = JSON.parse(message.body);
+                updateStats(stats);
+            });
+
+        }, function(error) {
+            // On disconnect — try reconnecting after 5 seconds
+            setWsStatus(false);
+            console.log('WebSocket disconnected — retrying in 5s...');
+            setTimeout(connectWebSocket, 5000);
+        });
+    }
+
+    // ── Boot the dashboard ────────────────────────────────────────────────────
+    loadInitialData();
+    connectWebSocket();
+
+    // Refresh chart every 60 seconds
+    setInterval(loadTrendChart, 60000);
+</script>
 
 </body>
 </html>
