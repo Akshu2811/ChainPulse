@@ -447,22 +447,29 @@
         }
 
         list.innerHTML = suppliers.map(s => {
-            // Calculate fake SLA % based on active alerts for demo
-            // In real system this would come from /api/suppliers/{id}/health
-            const statusClass = s.status ? s.status.toLowerCase().replace('_', '-') : 'healthy';
-            const barWidth = statusClass === 'healthy' ? 90 :
-                statusClass === 'at-risk'  ? 60 : 30;
+            // Map status to CSS class
+            const statusMap = {
+                'HEALTHY':  'healthy',
+                'AT_RISK':  'at-risk',
+                'CRITICAL': 'critical'
+            };
+            const statusClass = statusMap[s.status] || 'healthy';
+            const statusLabel = s.status?.replace('_', ' ') || 'Healthy';
+
+            // Bar width based on real status
+            const barWidth = statusClass === 'healthy'  ? 88 :
+                statusClass === 'at-risk'  ? 55 : 25;
 
             return `
         <div class="supplier-row">
             <div class="supplier-info">
                 <div class="supplier-name">${s.name}</div>
-                <div class="supplier-meta">${s.location} · SLA: ${s.slaThresholdHours}h</div>
+                <div class="supplier-meta">${s.location} · SLA: ${s.slaThresholdHours}h · ${s.activeAlerts ?? 0} active alerts</div>
             </div>
             <div class="sla-bar-wrap">
                 <div class="sla-bar ${statusClass}" style="width:${barWidth}%"></div>
             </div>
-            <span class="badge ${statusClass}">${s.status || 'Healthy'}</span>
+            <span class="badge ${statusClass}">${statusLabel}</span>
         </div>`;
         }).join('');
     }
@@ -567,15 +574,34 @@
             const stats    = await statsRes.json();
             updateStats(stats);
 
-            // Load suppliers
+            // Load suppliers WITH real health scores
             const suppRes   = await fetch('/api/suppliers');
             const suppliers = await suppRes.json();
-            renderSuppliers(suppliers);
+
+            // Fetch health for each supplier in parallel
+            const healthPromises = suppliers.map(s =>
+                fetch(`/api/suppliers/${s.id}/health`).then(r => r.json())
+            );
+            const healthData = await Promise.all(healthPromises);
+
+            // Merge health data into supplier objects
+            const suppliersWithHealth = suppliers.map((s, i) => ({
+                ...s,
+                status:       healthData[i].status,
+                activeAlerts: healthData[i].activeAlerts,
+            }));
+
+            // Sort by worst health first (Critical → At Risk → Healthy)
+            suppliersWithHealth.sort((a, b) => {
+                const order = { 'CRITICAL': 0, 'AT_RISK': 1, 'HEALTHY': 2 };
+                return (order[a.status] ?? 2) - (order[b.status] ?? 2);
+            });
+
+            renderSuppliers(suppliersWithHealth);
 
             // Load recent alerts into feed
             const alertRes  = await fetch('/api/alerts/active');
             const alerts    = await alertRes.json();
-            // Show last 10 recent alerts
             alerts.slice(-10).reverse().forEach(a => addAlertToFeed({
                 ...a,
                 supplierName: a.supplier?.name,
@@ -588,7 +614,6 @@
             console.error('Initial data load failed:', e);
         }
     }
-
     // ── Connect WebSocket via STOMP ───────────────────────────────────────────
     function connectWebSocket() {
         const socket = new SockJS('/ws');
@@ -627,6 +652,27 @@
 
     // Refresh chart every 60 seconds
     setInterval(loadTrendChart, 60000);
+    // Refresh supplier health every 30 seconds
+    setInterval(async () => {
+        try {
+            const suppRes   = await fetch('/api/suppliers');
+            const suppliers = await suppRes.json();
+            const healthPromises = suppliers.map(s =>
+                fetch(`/api/suppliers/${s.id}/health`).then(r => r.json())
+            );
+            const healthData = await Promise.all(healthPromises);
+            const suppliersWithHealth = suppliers.map((s, i) => ({
+                ...s,
+                status:       healthData[i].status,
+                activeAlerts: healthData[i].activeAlerts,
+            }));
+            suppliersWithHealth.sort((a, b) => {
+                const order = { 'CRITICAL': 0, 'AT_RISK': 1, 'HEALTHY': 2 };
+                return (order[a.status] ?? 2) - (order[b.status] ?? 2);
+            });
+            renderSuppliers(suppliersWithHealth);
+        } catch(e) { console.error('Supplier refresh failed:', e); }
+    }, 30000);
 </script>
 
 </body>
