@@ -6,6 +6,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import java.time.LocalDateTime;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 /**
  * Shipment — represents a single delivery/freight movement in the system.
@@ -32,27 +35,30 @@ public class Shipment {
      * @JoinColumn — the foreign key column in the shipments table.
      * LAZY fetch — only load supplier data when we actually need it (performance).
      */
+    @NotNull(message = "Supplier is required")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "supplier_id", nullable = false)
     private Supplier supplier;
-
     /**
      * Shipment status — tracks where the shipment is in its journey.
      * Stored as a String in DB (e.g. "IN_TRANSIT", "DELAYED").
      * We use an enum so the code is type-safe and readable.
      */
+    @NotNull(message = "Status is required")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ShipmentStatus status;
 
-    @Column(nullable = false)
-    private String origin;          // Where the shipment started e.g. "Mumbai"
-
-    @Column(nullable = false)
-    private String destination;     // Where it's going e.g. "Hyderabad"
-
+    @NotBlank(message = "Tracking number is required")
+    @Size(max = 20, message = "Tracking number must be 20 characters or less")
     @Column(name = "tracking_number", unique = true)
-    private String trackingNumber;  // Unique tracking ID e.g. "BD-2291"
+    private String trackingNumber;
+
+    @NotBlank(message = "Origin is required")
+    private String origin;
+
+    @NotBlank(message = "Destination is required")
+    private String destination;
 
     @Column(name = "dispatched_at")
     private LocalDateTime dispatchedAt;   // When the shipment left the warehouse

@@ -3,6 +3,7 @@ package com.chainpulse.chainpulse.controller;
 import com.chainpulse.chainpulse.entity.Shipment;
 import com.chainpulse.chainpulse.entity.Shipment.ShipmentStatus;
 import com.chainpulse.chainpulse.repository.ShipmentRepository;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -71,7 +72,7 @@ public class ShipmentController {
      * Used to register real shipments (not simulator ones).
      */
     @PostMapping
-    public ResponseEntity<Shipment> createShipment(@RequestBody Shipment shipment) {
+    public ResponseEntity<Shipment> createShipment(@Valid @RequestBody Shipment shipment) {
         log.debug("POST /api/shipments | Tracking: {}", shipment.getTrackingNumber());
         Shipment saved = shipmentRepository.save(shipment);
         log.info("✅ Shipment created | ID: {} | Tracking: {}",
