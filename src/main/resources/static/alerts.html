@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChainPulse — All Alerts</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary:    #0f1117;
+            --bg-secondary:  #1a1f2e;
+            --bg-tertiary:   #252b3b;
+            --border:        rgba(255,255,255,0.07);
+            --text-primary:  #e2e8f0;
+            --text-secondary:#94a3b8;
+            --text-muted:    #64748b;
+            --teal:          #1D9E75;
+            --amber:         #EF9F27;
+            --red:           #E24B4A;
+            --blue:          #378ADD;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        /* ── Navbar ───────────────────────────────────────────────────── */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 24px;
+            background: var(--bg-secondary);
+            border-bottom: 0.5px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .logo span { color: var(--teal); }
+
+        .back-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-muted);
+            background: var(--bg-tertiary);
+            border: 0.5px solid var(--border);
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .back-btn:hover { color: var(--text-primary); }
+
+        /* ── Main ─────────────────────────────────────────────────────── */
+        .main {
+            padding: 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* ── Header row ───────────────────────────────────────────────── */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .page-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .page-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Sort toggle button */
+        .sort-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            border: 0.5px solid var(--border);
+            padding: 7px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .sort-btn:hover {
+            color: var(--text-primary);
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        /* Filter pills */
+        .filter-pills {
+            display: flex;
+            gap: 6px;
+        }
+
+        .pill {
+            font-size: 11px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            border: 0.5px solid var(--border);
+            cursor: pointer;
+            background: var(--bg-secondary);
+            color: var(--text-muted);
+            transition: all 0.2s;
+        }
+        .pill.active-pill { background: var(--teal); color: #fff; border-color: var(--teal); }
+        .pill.critical-pill.selected { background: var(--red); color: #fff; border-color: var(--red); }
+        .pill.warning-pill.selected { background: var(--amber); color: #fff; border-color: var(--amber); }
+
+        /* ── Stats row ────────────────────────────────────────────────── */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: var(--bg-secondary);
+            border: 0.5px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 16px;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+
+        .stat-val {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .stat-val.red   { color: var(--red); }
+        .stat-val.amber { color: var(--amber); }
+        .stat-val.teal  { color: var(--teal); }
+        .stat-val.blue  { color: var(--blue); }
+
+        /* ── Alerts table ─────────────────────────────────────────────── */
+        .table-wrap {
+            background: var(--bg-secondary);
+            border: 0.5px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead th {
+            padding: 12px 16px;
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            text-align: left;
+            background: var(--bg-tertiary);
+            border-bottom: 0.5px solid var(--border);
+        }
+
+        tbody tr {
+            border-bottom: 0.5px solid var(--border);
+            transition: background 0.15s;
+        }
+
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: rgba(255,255,255,0.03); }
+
+        td {
+            padding: 12px 16px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            vertical-align: middle;
+        }
+
+        .severity-badge {
+            font-size: 10px;
+            font-weight: 500;
+            padding: 3px 8px;
+            border-radius: 20px;
+            white-space: nowrap;
+        }
+
+        .severity-badge.CRITICAL {
+            background: rgba(226,75,74,0.15);
+            color: var(--red);
+            border: 0.5px solid rgba(226,75,74,0.3);
+        }
+
+        .severity-badge.WARNING {
+            background: rgba(239,159,39,0.15);
+            color: var(--amber);
+            border: 0.5px solid rgba(239,159,39,0.3);
+        }
+
+        .rule-type {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .supplier-name {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .message-cell {
+            max-width: 320px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-muted);
+        }
+
+        .resolve-btn {
+            font-size: 10px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 0.5px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.05);
+            color: var(--text-muted);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .resolve-btn:hover {
+            background: rgba(29,158,117,0.15);
+            color: var(--teal);
+            border-color: var(--teal);
+        }
+
+        .resolved-label {
+            font-size: 10px;
+            color: var(--teal);
+            font-weight: 500;
+        }
+
+        /* ── Pagination ───────────────────────────────────────────────── */
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 4px;
+        }
+
+        .page-info {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .page-btns {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .page-btn {
+            font-size: 12px;
+            padding: 6px 14px;
+            border-radius: 8px;
+            border: 0.5px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .page-btn:hover:not(:disabled) {
+            border-color: rgba(255,255,255,0.2);
+            color: var(--text-primary);
+        }
+
+        .page-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .page-btn.active {
+            background: var(--teal);
+            color: #fff;
+            border-color: var(--teal);
+        }
+
+        .page-numbers {
+            display: flex;
+            gap: 4px;
+        }
+
+        .page-num {
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 0.5px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-muted);
+            cursor: pointer;
+            min-width: 32px;
+            text-align: center;
+        }
+
+        .page-num:hover { color: var(--text-primary); }
+        .page-num.current {
+            background: var(--teal);
+            color: #fff;
+            border-color: var(--teal);
+        }
+
+        /* Loading state */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 60px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar">
+    <div class="logo">Chain<span>Pulse</span> — Alert Center</div>
+    <a href="/" class="back-btn">← Back to Dashboard</a>
+</nav>
+
+<div class="main">
+
+    <!-- Stats row -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-label">Total Alerts</div>
+            <div class="stat-val blue" id="totalAlerts">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Active Alerts</div>
+            <div class="stat-val amber" id="activeAlerts">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Critical</div>
+            <div class="stat-val red" id="criticalAlerts">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Resolved</div>
+            <div class="stat-val teal" id="resolvedAlerts">—</div>
+        </div>
+    </div>
+
+    <!-- Page header + controls -->
+    <div class="page-header">
+        <div>
+            <div class="page-title">All Alerts</div>
+            <div class="page-subtitle" id="pageSubtitle">Loading...</div>
+        </div>
+        <div class="controls">
+            <!-- Sort toggle -->
+            <button class="sort-btn" onclick="toggleSort()" id="sortBtn">
+                ↓ Newest First
+            </button>
+            <!-- Filter pills -->
+            <div class="filter-pills">
+                <div class="pill" style="background:var(--teal);color:#fff;border-color:var(--teal)" onclick="setFilter('all', this)">All</div>
+                <div class="pill" onclick="setFilter('CRITICAL', this)">Critical</div>
+                <div class="pill" onclick="setFilter('WARNING', this)">Warning</div>
+                <div class="pill" onclick="setFilter('resolved', this)">Resolved</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerts table -->
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Severity</th>
+                <th>Rule Type</th>
+                <th>Supplier</th>
+                <th>Message</th>
+                <th>Time</th>
+                <th>Action</th>
+            </tr>
+            </thead>
+            <tbody id="alertTableBody">
+            <tr><td colspan="7" class="loading">Loading alerts...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination">
+        <div class="page-info" id="pageInfo">—</div>
+        <div class="page-btns">
+            <button class="page-btn" id="prevBtn" onclick="goToPage(currentPage - 1)">← Prev</button>
+            <div class="page-numbers" id="pageNumbers"></div>
+            <button class="page-btn" id="nextBtn" onclick="goToPage(currentPage + 1)">Next →</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // ══════════════════════════════════════════════════════════════════════════
+    // ChainPulse — Alert Center
+    // ══════════════════════════════════════════════════════════════════════════
+
+    let currentPage    = 0;
+    let totalPages     = 0;
+    let totalElements  = 0;
+    let sortDirection  = 'desc';   // desc = newest first, asc = oldest first
+    let currentFilter  = 'all';
+    const PAGE_SIZE    = 20;
+
+    // ── Load stats ────────────────────────────────────────────────────────────
+    async function loadStats() {
+        const res   = await fetch('/api/alerts/stats');
+        const stats = await res.json();
+        document.getElementById('totalAlerts').textContent    = stats.totalAlerts    ?? '—';
+        document.getElementById('activeAlerts').textContent   = stats.activeAlerts   ?? '—';
+        document.getElementById('criticalAlerts').textContent = stats.criticalAlerts ?? '—';
+        document.getElementById('resolvedAlerts').textContent = stats.resolvedAlerts ?? '—';
+    }
+
+    // ── Load alerts page ──────────────────────────────────────────────────────
+    async function loadAlerts(page = 0) {
+        const tbody = document.getElementById('alertTableBody');
+        tbody.innerHTML = '<tr><td colspan="7" class="loading">Loading...</td></tr>';
+
+        try {
+            // Build URL based on filter
+            let url;
+            if (currentFilter === 'resolved') {
+                url = `/api/alerts?page=${page}&size=${PAGE_SIZE}&sortBy=createdAt&direction=${sortDirection}`;
+            } else {
+                url = `/api/alerts?page=${page}&size=${PAGE_SIZE}&sortBy=createdAt&direction=${sortDirection}`;
+            }
+
+            const res  = await fetch(url);
+            const data = await res.json();
+
+            totalPages    = data.totalPages;
+            totalElements = data.totalElements;
+            currentPage   = data.number;
+
+            // Filter client-side based on selection
+            let alerts = data.content;
+            if (currentFilter === 'CRITICAL') {
+                alerts = alerts.filter(a => a.severity === 'CRITICAL' && !a.resolved);
+            } else if (currentFilter === 'WARNING') {
+                alerts = alerts.filter(a => a.severity === 'WARNING' && !a.resolved);
+            } else if (currentFilter === 'resolved') {
+                alerts = alerts.filter(a => a.resolved);
+            }
+
+            renderTable(alerts);
+            renderPagination();
+
+            document.getElementById('pageSubtitle').textContent =
+                `${totalElements} total alerts · Page ${currentPage + 1} of ${totalPages}`;
+
+        } catch (e) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty">Failed to load alerts</td></tr>';
+            console.error(e);
+        }
+    }
+
+    // ── Render table rows ─────────────────────────────────────────────────────
+    function renderTable(alerts) {
+        const tbody = document.getElementById('alertTableBody');
+
+        if (!alerts || alerts.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty">No alerts found</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = alerts.map(a => `
+        <tr id="row-${a.id}">
+            <td style="color:var(--text-muted);font-size:11px">#${a.id}</td>
+            <td><span class="severity-badge ${a.severity}">${a.severity}</span></td>
+            <td><span class="rule-type">${a.ruleType?.replace(/_/g, ' ')}</span></td>
+            <td><span class="supplier-name">${a.supplier?.name ?? '—'}</span></td>
+            <td class="message-cell" title="${a.message}">${a.message}</td>
+            <td style="white-space:nowrap;font-size:11px">
+                ${new Date(a.createdAt).toLocaleString('en-IN', {
+            day:'2-digit', month:'short',
+            hour:'2-digit', minute:'2-digit'
+        })}
+            </td>
+            <td>
+                ${a.resolved
+            ? '<span class="resolved-label">✓ Resolved</span>'
+            : `<button class="resolve-btn" onclick="resolveAlert(${a.id})">✓ Resolve</button>`
+        }
+            </td>
+        </tr>
+    `).join('');
+    }
+
+    // ── Render pagination numbers ─────────────────────────────────────────────
+    function renderPagination() {
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const nums    = document.getElementById('pageNumbers');
+        const info    = document.getElementById('pageInfo');
+
+        prevBtn.disabled = currentPage === 0;
+        nextBtn.disabled = currentPage >= totalPages - 1;
+
+        // Show page numbers — current ± 2
+        const start = Math.max(0, currentPage - 2);
+        const end   = Math.min(totalPages - 1, currentPage + 2);
+
+        let html = '';
+        if (start > 0) html += `<div class="page-num" onclick="goToPage(0)">1</div><div class="page-num" style="cursor:default;opacity:0.4">…</div>`;
+        for (let i = start; i <= end; i++) {
+            html += `<div class="page-num ${i === currentPage ? 'current' : ''}" onclick="goToPage(${i})">${i + 1}</div>`;
+        }
+        if (end < totalPages - 1) html += `<div class="page-num" style="cursor:default;opacity:0.4">…</div><div class="page-num" onclick="goToPage(${totalPages - 1})">${totalPages}</div>`;
+        nums.innerHTML = html;
+
+        const from = currentPage * PAGE_SIZE + 1;
+        const to   = Math.min((currentPage + 1) * PAGE_SIZE, totalElements);
+        info.textContent = `Showing ${from}–${to} of ${totalElements} alerts`;
+    }
+
+    // ── Navigate to page ──────────────────────────────────────────────────────
+    function goToPage(page) {
+        if (page < 0 || page >= totalPages) return;
+        loadAlerts(page);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ── Toggle sort direction ─────────────────────────────────────────────────
+    function toggleSort() {
+        sortDirection = sortDirection === 'desc' ? 'asc' : 'desc';
+        document.getElementById('sortBtn').textContent =
+            sortDirection === 'desc' ? '↓ Newest First' : '↑ Oldest First';
+        loadAlerts(0);
+    }
+    // ── Set Filter ─────────────────────────────────────────────────
+    function setFilter(filter, el) {
+        currentFilter = filter;
+        // Remove active styling from all pills
+        document.querySelectorAll('.pill').forEach(p => {
+            p.style.background = '';
+            p.style.color = '';
+            p.style.borderColor = '';
+        });
+        // Highlight selected pill in teal
+        el.style.background = 'var(--teal)';
+        el.style.color = '#fff';
+        el.style.borderColor = 'var(--teal)';
+        loadAlerts(0);
+    }
+
+    // ── Resolve alert ─────────────────────────────────────────────────────────
+    async function resolveAlert(alertId) {
+        try {
+            const res = await fetch(`/api/alerts/${alertId}/resolve`, { method: 'PUT' });
+            if (res.ok) {
+                // Update the row without full reload
+                const row = document.getElementById(`row-${alertId}`);
+                if (row) {
+                    const btn = row.querySelector('.resolve-btn');
+                    if (btn) {
+                        btn.outerHTML = '<span class="resolved-label">✓ Resolved</span>';
+                    }
+                }
+                loadStats(); // Refresh stats
+            }
+        } catch (e) {
+            console.error('Failed to resolve:', e);
+        }
+    }
+
+    // ── Boot ──────────────────────────────────────────────────────────────────
+    loadStats();
+    loadAlerts(0);
+
+    setInterval(() => {
+        loadAlerts(currentPage);
+        loadStats();
+    }, 30000);
+</script>
+
+</body>
+</html>
