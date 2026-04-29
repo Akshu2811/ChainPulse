@@ -30,13 +30,10 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      # Step 3: Make Maven wrapper executable
-      - name: Make mvnw executable
-        run: chmod +x ./mvnw
-
-      # Step 4: Run tests
+      # Step 3: Run tests using mvn directly
       - name: Run unit tests
-        run: ./mvnw test -Dspring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration,org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+        run: mvn test -Dspring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration,org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+
       # Step 4: Publish test results
       - name: Publish test results
         uses: actions/upload-artifact@v4
