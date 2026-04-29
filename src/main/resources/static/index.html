@@ -558,33 +558,17 @@
         document.getElementById('alertCount').textContent = `${alertCount} new`;
     }
 
-    // ── Load trend chart ──────────────────────────────────────────────────────
     async function loadTrendChart() {
         try {
             const res  = await fetch('/api/alerts/stats/trend?days=7');
             const data = await res.json();
-            const alerts = data.alerts || [];
 
-            // Group alerts by day
-            const days = {};
-            for (let i = 6; i >= 0; i--) {
-                const d = new Date();
-                d.setDate(d.getDate() - i);
-                const key = d.toLocaleDateString('en-IN', {day:'2-digit', month:'short'});
-                days[key] = 0;
-            }
-
-            alerts.forEach(a => {
-                const key = new Date(a.createdAt)
-                    .toLocaleDateString('en-IN', {day:'2-digit', month:'short'});
-                if (days[key] !== undefined) days[key]++;
-            });
-
-            const labels = Object.keys(days);
-            const values = Object.values(days);
+            // Use pre-computed counts from server
+            const countPerDay = data.countPerDay || {};
+            const labels = Object.keys(countPerDay);
+            const values = Object.values(countPerDay);
 
             const ctx = document.getElementById('trendChart').getContext('2d');
-
             if (trendChart) trendChart.destroy();
 
             trendChart = new Chart(ctx, {
@@ -621,7 +605,6 @@
             console.error('Chart load failed:', e);
         }
     }
-
     // ── Load initial data from REST APIs ─────────────────────────────────────
     async function loadInitialData() {
         try {

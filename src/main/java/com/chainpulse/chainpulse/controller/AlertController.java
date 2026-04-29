@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -46,6 +47,7 @@ public class AlertController {
      * Example: /api/alerts?page=0&size=20
      * Returns first 20 alerts with pagination metadata.
      */
+    @Transactional
     @GetMapping
     public ResponseEntity<Page<AlertEvent>> getAllAlerts(
             @RequestParam(defaultValue = "0")  int page,
@@ -65,7 +67,18 @@ public class AlertController {
 
         return ResponseEntity.ok(alerts);
     }
-
+    /**
+     * GET /api/alerts/active
+     * Returns only unresolved alerts.
+     * Used to populate the live alert feed on dashboard load.
+     */
+    @Transactional
+    @GetMapping("/active")
+    public ResponseEntity<List<AlertEvent>> getActiveAlerts() {
+        log.debug("GET /api/alerts/active");
+        List<AlertEvent> alerts = alertEventRepository.findByResolvedFalse();
+        return ResponseEntity.ok(alerts);
+    }
     /**
      * GET /api/alerts/stats
      * Returns summary statistics for the dashboard metric cards.
@@ -126,17 +139,31 @@ public class AlertController {
         log.debug("GET /api/alerts/stats/trend?days={}", days);
 
         LocalDateTime since = LocalDateTime.now().minusDays(days);
+
+        // Only fetch id and createdAt — not full alert objects
+        // Avoids sending 300+ full alert objects to browser
         List<AlertEvent> recentAlerts = alertEventRepository.findByCreatedAtAfter(since);
+
+        // Count per day — send only numbers to browser
+        Map<String, Long> countPerDay = new java.util.LinkedHashMap<>();
+        for (int i = days - 1; i >= 0; i--) {
+            String label = LocalDateTime.now().minusDays(i)
+                    .toLocalDate().toString();
+            countPerDay.put(label, 0L);
+        }
+        recentAlerts.forEach(a -> {
+            String label = a.getCreatedAt().toLocalDate().toString();
+            countPerDay.merge(label, 1L, Long::sum);
+        });
 
         Map<String, Object> trend = new HashMap<>();
         trend.put("since", since);
         trend.put("days", days);
         trend.put("totalInPeriod", recentAlerts.size());
-        trend.put("alerts", recentAlerts);
+        trend.put("countPerDay", countPerDay);  // just counts, not full objects
 
         return ResponseEntity.ok(trend);
     }
-
     /**
      * PUT /api/alerts/{id}/resolve
      * Marks an alert as resolved.
