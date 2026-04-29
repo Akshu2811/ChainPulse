@@ -169,4 +169,41 @@ public class RedisService {
     public boolean keyExists(String key) {
         return Boolean.TRUE.equals(redisTemplate.hasKey(key));
     }
+
+    // ══════════════════════════════════════════════════════════════════════════
+// SLA RULES CACHE
+// ══════════════════════════════════════════════════════════════════════════
+
+    private static final String SLA_RULES_CACHE_KEY = "sla:rules:active";
+    private static final Duration SLA_RULES_TTL = Duration.ofMinutes(5);
+
+    /**
+     * cacheSlaRules — stores serialized SLA rules in Redis.
+     * Called after loading rules from DB.
+     * TTL 5 minutes — rules don't change often.
+     *
+     * @param rulesJson — JSON string of all active rules
+     */
+    public void cacheSlaRules(String rulesJson) {
+        redisTemplate.opsForValue().set(SLA_RULES_CACHE_KEY, rulesJson, SLA_RULES_TTL);
+        log.debug("📋 SLA rules cached | TTL: 5min");
+    }
+
+    /**
+     * getCachedSlaRules — retrieves cached SLA rules from Redis.
+     * Returns null on cache miss — caller must load from DB.
+     */
+    public String getCachedSlaRules() {
+        return redisTemplate.opsForValue().get(SLA_RULES_CACHE_KEY);
+    }
+
+    /**
+     * evictSlaRulesCache — clears the SLA rules cache.
+     * Called when a rule is created, updated, or toggled
+     * so the engine picks up the latest rules immediately.
+     */
+    public void evictSlaRulesCache() {
+        redisTemplate.delete(SLA_RULES_CACHE_KEY);
+        log.info("🗑️ SLA rules cache evicted — will reload from DB on next event");
+    }
 }

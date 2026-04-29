@@ -2,6 +2,7 @@ package com.chainpulse.chainpulse.controller;
 
 import com.chainpulse.chainpulse.entity.SlaRule;
 import com.chainpulse.chainpulse.repository.SlaRuleRepository;
+import com.chainpulse.chainpulse.service.RedisService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +29,9 @@ public class SlaRuleController {
 
     @Autowired
     private SlaRuleRepository slaRuleRepository;
+
+    @Autowired
+    private RedisService redisService;
 
     /**
      * GET /api/sla-rules
@@ -66,6 +70,7 @@ public class SlaRuleController {
         log.debug("POST /api/sla-rules | Type: {} | Threshold: {}",
                 rule.getRuleType(), rule.getThresholdValue());
         SlaRule saved = slaRuleRepository.save(rule);
+        redisService.evictSlaRulesCache();
         log.info("✅ SLA rule created | ID: {} | Type: {} | Threshold: {}h | Severity: {}",
                 saved.getId(), saved.getRuleType(),
                 saved.getThresholdValue(), saved.getSeverity());
@@ -84,6 +89,7 @@ public class SlaRuleController {
                 .map(rule -> {
                     rule.setActive(!rule.getActive());
                     SlaRule saved = slaRuleRepository.save(rule);
+                    redisService.evictSlaRulesCache();
                     log.info("🔄 SLA rule toggled | ID: {} | Active: {}",
                             saved.getId(), saved.getActive());
                     return ResponseEntity.ok(saved);
@@ -101,6 +107,7 @@ public class SlaRuleController {
         return slaRuleRepository.findById(id)
                 .map(rule -> {
                     slaRuleRepository.delete(rule);
+                    redisService.evictSlaRulesCache();
                     log.info("🗑️ SLA rule deleted | ID: {}", id);
                     return ResponseEntity.ok().<Void>build();
                 })

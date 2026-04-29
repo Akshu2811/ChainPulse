@@ -13,7 +13,10 @@ import com.chainpulse.chainpulse.repository.SupplierRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -54,43 +57,84 @@ public class SlaRuleEngine {
     @Autowired
     private AlertBroadcastService alertBroadcastService;
 
+    private final ObjectMapper objectMapper;
+
+    // Add constructor
+    public SlaRuleEngine() {
+        this.objectMapper = new ObjectMapper();
+        this.objectMapper.registerModule(new JavaTimeModule());
+        this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    }
+
     /**
      * evaluate — main method called by ShipmentEventConsumer for every event.
      *
-     * Steps:
-     * 1. Load global rules (apply to all suppliers)
-     * 2. Load supplier-specific rules (apply to this supplier only)
-     * 3. Combine both lists
-     * 4. Evaluate each rule against the shipment event
-     * 5. Create alerts for any breaches found
+     * Updated to use Redis cache for SLA rules.
+     * Cache hit  → load rules from Redis (fast, ~0.1ms)
+     * Cache miss → load from DB, store in Redis for 5 mins
      *
-     * @param eventDto — the shipment event received from Kafka
+     * This reduces DB queries from "every event" to "every 5 minutes".
+     * With events firing every 15s — that's a 20x reduction in DB load!
      */
     public void evaluate(ShipmentEventDto eventDto) {
         log.debug("🔍 Evaluating SLA rules for shipment: {} | Status: {}",
                 eventDto.getTrackingNumber(), eventDto.getStatus());
 
-        // Load global rules — apply to ALL suppliers
-        List<SlaRule> globalRules = slaRuleRepository.findBySupplierIsNullAndActiveTrue();
-
-        // Load supplier-specific rules — apply to THIS supplier only
-        List<SlaRule> supplierRules = slaRuleRepository
-                .findBySupplierIdAndActiveTrue(eventDto.getSupplierId());
-
-        // Combine both lists into one
-        List<SlaRule> allRules = new ArrayList<>();
-        allRules.addAll(globalRules);
-        allRules.addAll(supplierRules);
+        List<SlaRule> allRules = loadRules(eventDto.getSupplierId());
 
         if (allRules.isEmpty()) {
             log.debug("No active SLA rules found — skipping evaluation");
             return;
         }
 
-        // Evaluate each rule one by one
         for (SlaRule rule : allRules) {
             evaluateRule(rule, eventDto);
         }
+    }
+
+    /**
+     * loadRules — loads SLA rules from Redis cache or DB.
+     *
+     * Strategy:
+     * 1. Try Redis cache first
+     * 2. Cache hit → deserialize and return
+     * 3. Cache miss → load from DB → serialize → store in Redis → return
+     */
+    private List<SlaRule> loadRules(Long supplierId) {
+        try {
+            // Step 1: Check Redis cache
+            String cachedRules = redisService.getCachedSlaRules();
+
+            if (cachedRules != null) {
+                // Cache hit — deserialize JSON back to List<SlaRule>
+                log.debug("✅ SLA rules cache hit — loading from Redis");
+                return objectMapper.readValue(cachedRules,
+                        new TypeReference<List<SlaRule>>() {});
+            }
+        } catch (Exception e) {
+            // If deserialization fails — fall through to DB load
+            log.warn("⚠️ Failed to deserialize cached rules — loading from DB | Error: {}",
+                    e.getMessage());
+        }
+
+        // Step 2: Cache miss — load from DB
+        log.debug("❌ SLA rules cache miss — loading from DB");
+        List<SlaRule> globalRules   = slaRuleRepository.findBySupplierIsNullAndActiveTrue();
+        List<SlaRule> supplierRules = slaRuleRepository.findBySupplierIdAndActiveTrue(supplierId);
+
+        List<SlaRule> allRules = new ArrayList<>();
+        allRules.addAll(globalRules);
+        allRules.addAll(supplierRules);
+
+        // Step 3: Store in Redis for next 5 minutes
+        try {
+            String rulesJson = objectMapper.writeValueAsString(allRules);
+            redisService.cacheSlaRules(rulesJson);
+        } catch (Exception e) {
+            log.warn("⚠️ Failed to cache SLA rules in Redis | Error: {}", e.getMessage());
+        }
+
+        return allRules;
     }
 
     /**
