@@ -13,6 +13,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+
+
 /**
  * AlertController — REST API endpoints for alert data.
  *
@@ -31,27 +37,32 @@ public class AlertController {
     @Autowired
     private AlertEventRepository alertEventRepository;
 
-    /**
-     * GET /api/alerts
-     * Returns full alert history — all alerts ever created.
-     * Sorted by most recent first.
-     */
-    @GetMapping
-    public ResponseEntity<List<AlertEvent>> getAllAlerts() {
-        log.debug("GET /api/alerts");
-        List<AlertEvent> alerts = alertEventRepository.findAll();
-        return ResponseEntity.ok(alerts);
-    }
 
     /**
-     * GET /api/alerts/active
-     * Returns only unresolved alerts.
-     * These are shown in the live alert feed on the dashboard.
+     * GET /api/alerts?page=0&size=20&sort=createdAt,desc
+     * Returns paginated alerts — newest first by default.
+     * Avoids loading all 285+ alerts at once.
+     *
+     * Example: /api/alerts?page=0&size=20
+     * Returns first 20 alerts with pagination metadata.
      */
-    @GetMapping("/active")
-    public ResponseEntity<List<AlertEvent>> getActiveAlerts() {
-        log.debug("GET /api/alerts/active");
-        List<AlertEvent> alerts = alertEventRepository.findByResolvedFalse();
+    @GetMapping
+    public ResponseEntity<Page<AlertEvent>> getAllAlerts(
+            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String direction) {
+
+        log.debug("GET /api/alerts | page={} size={} sort={} dir={}",
+                page, size, sortBy, direction);
+
+        Sort sort = direction.equalsIgnoreCase("desc")
+                ? Sort.by(sortBy).descending()
+                : Sort.by(sortBy).ascending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+        Page<AlertEvent> alerts = alertEventRepository.findAll(pageable);
+
         return ResponseEntity.ok(alerts);
     }
 
