@@ -105,4 +105,26 @@ public class AlertBroadcastService {
             log.error("❌ Failed to broadcast stats | Error: {}", e.getMessage());
         }
     }
+
+    /**
+     * broadcastAiAnalysis — sends AI root cause analysis to dashboard.
+     * Browser receives this and displays it on the alert card.
+     *
+     * @param alertId  — which alert this analysis belongs to
+     * @param analysis — Gemini's root cause analysis text
+     */
+    public void broadcastAiAnalysis(Long alertId, String analysis) {
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("alertId",   alertId);
+            payload.put("analysis",  analysis);
+            payload.put("timestamp", LocalDateTime.now().toString());
+
+            messagingTemplate.convertAndSend("/topic/ai-analysis", (Object) payload);
+
+            log.info("🤖 AI analysis broadcast sent | Alert ID: {}", alertId);
+        } catch (Exception e) {
+            log.error("❌ Failed to broadcast AI analysis | Error: {}", e.getMessage());
+        }
+    }
 }

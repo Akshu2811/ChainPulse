@@ -57,6 +57,9 @@ public class SlaRuleEngine {
     @Autowired
     private AlertBroadcastService alertBroadcastService;
 
+    @Autowired
+    private AiRootCauseService aiRootCauseService;
+
     private final ObjectMapper objectMapper;
 
     // Add constructor
@@ -342,6 +345,22 @@ public class SlaRuleEngine {
                 saved.getSeverity(),
                 saved.getRuleType(),
                 eventDto.getTrackingNumber());
+
+        // Trigger AI root cause analysis for CRITICAL alerts only
+        // Run asynchronously so it doesn't slow down the Kafka consumer
+        if (saved.getSeverity() == SlaRule.AlertSeverity.CRITICAL) {
+            new Thread(() -> {
+                try {
+                    // Small delay to avoid rate limiting
+                    Thread.sleep(1000);
+                } catch (InterruptedException ignored) {}
+                String analysis = aiRootCauseService.analyzeAlert(saved);
+                log.info("🤖 AI Root Cause Analysis | Alert ID: {} |\n{}",
+                        saved.getId(), analysis);
+                // Broadcast AI analysis to dashboard via WebSocket
+                alertBroadcastService.broadcastAiAnalysis(saved.getId(), analysis);
+            }).start();
+        }
 
         // Step 4: Write dedup marker to Redis — expires in 30 minutes
         // This prevents the same alert from firing again for 30 mins
