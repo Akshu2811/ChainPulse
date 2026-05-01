@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChainPulse — All Alerts</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
     <style>
         :root {
             --bg-primary:    #0f1117;
@@ -15,6 +17,7 @@
             --text-secondary:#94a3b8;
             --text-muted:    #64748b;
             --teal:          #1D9E75;
+            --teal-light:    rgba(29,158,117,0.12);
             --amber:         #EF9F27;
             --red:           #E24B4A;
             --blue:          #378ADD;
@@ -29,7 +32,6 @@
             min-height: 100vh;
         }
 
-        /* ── Navbar ───────────────────────────────────────────────────── */
         .navbar {
             display: flex;
             justify-content: space-between;
@@ -42,11 +44,7 @@
             z-index: 100;
         }
 
-        .logo {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
+        .logo { font-size: 16px; font-weight: 600; color: var(--text-primary); }
         .logo span { color: var(--teal); }
 
         .back-btn {
@@ -65,39 +63,14 @@
         }
         .back-btn:hover { color: var(--text-primary); }
 
-        /* ── Main ─────────────────────────────────────────────────────── */
-        .main {
-            padding: 24px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
+        .main { padding: 24px; max-width: 1200px; margin: 0 auto; }
 
-        /* ── Header row ───────────────────────────────────────────────── */
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .page-title  { font-size: 18px; font-weight: 600; }
+        .page-subtitle { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
-        .page-title {
-            font-size: 18px;
-            font-weight: 600;
-        }
+        .controls { display: flex; align-items: center; gap: 10px; }
 
-        .page-subtitle {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-top: 2px;
-        }
-
-        .controls {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        /* Sort toggle button */
         .sort-btn {
             display: flex;
             align-items: center;
@@ -111,16 +84,9 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        .sort-btn:hover {
-            color: var(--text-primary);
-            border-color: rgba(255,255,255,0.2);
-        }
+        .sort-btn:hover { color: var(--text-primary); border-color: rgba(255,255,255,0.2); }
 
-        /* Filter pills */
-        .filter-pills {
-            display: flex;
-            gap: 6px;
-        }
+        .filter-pills { display: flex; gap: 6px; }
 
         .pill {
             font-size: 11px;
@@ -132,56 +98,20 @@
             color: var(--text-muted);
             transition: all 0.2s;
         }
-        .pill.active-pill { background: var(--teal); color: #fff; border-color: var(--teal); }
-        .pill.critical-pill.selected { background: var(--red); color: #fff; border-color: var(--red); }
-        .pill.warning-pill.selected { background: var(--amber); color: #fff; border-color: var(--amber); }
 
-        /* ── Stats row ────────────────────────────────────────────────── */
-        .stats-row {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            margin-bottom: 20px;
-        }
+        .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
 
-        .stat-card {
-            background: var(--bg-secondary);
-            border: 0.5px solid var(--border);
-            border-radius: 10px;
-            padding: 14px 16px;
-        }
-
-        .stat-label {
-            font-size: 10px;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 6px;
-        }
-
-        .stat-val {
-            font-size: 24px;
-            font-weight: 600;
-        }
-
+        .stat-card { background: var(--bg-secondary); border: 0.5px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+        .stat-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+        .stat-val   { font-size: 24px; font-weight: 600; }
         .stat-val.red   { color: var(--red); }
         .stat-val.amber { color: var(--amber); }
         .stat-val.teal  { color: var(--teal); }
         .stat-val.blue  { color: var(--blue); }
 
-        /* ── Alerts table ─────────────────────────────────────────────── */
-        .table-wrap {
-            background: var(--bg-secondary);
-            border: 0.5px solid var(--border);
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 16px;
-        }
+        .table-wrap { background: var(--bg-secondary); border: 0.5px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
+        table { width: 100%; border-collapse: collapse; }
 
         thead th {
             padding: 12px 16px;
@@ -195,59 +125,69 @@
             border-bottom: 0.5px solid var(--border);
         }
 
-        tbody tr {
-            border-bottom: 0.5px solid var(--border);
-            transition: background 0.15s;
-        }
-
+        tbody tr { border-bottom: 0.5px solid var(--border); transition: background 0.15s; }
         tbody tr:last-child { border-bottom: none; }
         tbody tr:hover { background: rgba(255,255,255,0.03); }
 
-        td {
-            padding: 12px 16px;
-            font-size: 12px;
-            color: var(--text-secondary);
-            vertical-align: middle;
-        }
+        td { padding: 12px 16px; font-size: 12px; color: var(--text-secondary); vertical-align: top; }
 
-        .severity-badge {
+        .severity-badge { font-size: 10px; font-weight: 500; padding: 3px 8px; border-radius: 20px; white-space: nowrap; }
+        .severity-badge.CRITICAL { background: rgba(226,75,74,0.15); color: var(--red);   border: 0.5px solid rgba(226,75,74,0.3); }
+        .severity-badge.WARNING  { background: rgba(239,159,39,0.15); color: var(--amber); border: 0.5px solid rgba(239,159,39,0.3); }
+
+        .rule-type    { font-size: 11px; font-weight: 500; color: var(--text-primary); }
+        .supplier-name { font-weight: 500; color: var(--text-primary); }
+        .message-cell { max-width: 280px; color: var(--text-muted); font-size: 11px; }
+
+        /* ── AI Analysis in table ───────────────────────────────── */
+        .ai-cell { max-width: 300px; }
+
+        .ai-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
             font-size: 10px;
-            font-weight: 500;
-            padding: 3px 8px;
+            color: var(--teal);
+            background: var(--teal-light);
+            border: 0.5px solid rgba(29,158,117,0.2);
+            padding: 2px 8px;
             border-radius: 20px;
+            cursor: pointer;
+            transition: background 0.2s;
             white-space: nowrap;
         }
+        .ai-badge:hover { background: rgba(29,158,117,0.2); }
 
-        .severity-badge.CRITICAL {
-            background: rgba(226,75,74,0.15);
-            color: var(--red);
-            border: 0.5px solid rgba(226,75,74,0.3);
-        }
-
-        .severity-badge.WARNING {
-            background: rgba(239,159,39,0.15);
-            color: var(--amber);
-            border: 0.5px solid rgba(239,159,39,0.3);
-        }
-
-        .rule-type {
+        .ai-expand {
+            margin-top: 6px;
             font-size: 11px;
-            font-weight: 500;
-            color: var(--text-primary);
+            color: var(--text-secondary);
+            line-height: 1.5;
+            white-space: pre-line;
+            display: none;
+            padding: 8px;
+            background: rgba(29,158,117,0.04);
+            border-left: 2px solid var(--teal);
+            border-radius: 4px;
         }
 
-        .supplier-name {
-            font-weight: 500;
-            color: var(--text-primary);
-        }
-
-        .message-cell {
-            max-width: 320px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+        .ai-thinking-cell {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 10px;
             color: var(--text-muted);
         }
+
+        .ai-spinner-sm {
+            width: 7px;
+            height: 7px;
+            border: 1.5px solid rgba(29,158,117,0.3);
+            border-top-color: var(--teal);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         .resolve-btn {
             font-size: 10px;
@@ -260,102 +200,32 @@
             white-space: nowrap;
             transition: all 0.2s;
         }
-        .resolve-btn:hover {
-            background: rgba(29,158,117,0.15);
-            color: var(--teal);
-            border-color: var(--teal);
-        }
+        .resolve-btn:hover { background: rgba(29,158,117,0.15); color: var(--teal); border-color: var(--teal); }
+        .resolved-label    { font-size: 10px; color: var(--teal); font-weight: 500; }
 
-        .resolved-label {
-            font-size: 10px;
-            color: var(--teal);
-            font-weight: 500;
-        }
+        .pagination { display: flex; justify-content: space-between; align-items: center; padding: 0 4px; }
+        .page-info  { font-size: 12px; color: var(--text-muted); }
+        .page-btns  { display: flex; gap: 6px; align-items: center; }
 
-        /* ── Pagination ───────────────────────────────────────────────── */
-        .pagination {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 4px;
-        }
+        .page-btn { font-size: 12px; padding: 6px 14px; border-radius: 8px; border: 0.5px solid var(--border); background: var(--bg-secondary); color: var(--text-secondary); cursor: pointer; transition: all 0.2s; }
+        .page-btn:hover:not(:disabled) { border-color: rgba(255,255,255,0.2); color: var(--text-primary); }
+        .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-        .page-info {
-            font-size: 12px;
-            color: var(--text-muted);
-        }
+        .page-numbers { display: flex; gap: 4px; }
 
-        .page-btns {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-        }
-
-        .page-btn {
-            font-size: 12px;
-            padding: 6px 14px;
-            border-radius: 8px;
-            border: 0.5px solid var(--border);
-            background: var(--bg-secondary);
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .page-btn:hover:not(:disabled) {
-            border-color: rgba(255,255,255,0.2);
-            color: var(--text-primary);
-        }
-
-        .page-btn:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-
-        .page-btn.active {
-            background: var(--teal);
-            color: #fff;
-            border-color: var(--teal);
-        }
-
-        .page-numbers {
-            display: flex;
-            gap: 4px;
-        }
-
-        .page-num {
-            font-size: 12px;
-            padding: 6px 10px;
-            border-radius: 6px;
-            border: 0.5px solid var(--border);
-            background: var(--bg-secondary);
-            color: var(--text-muted);
-            cursor: pointer;
-            min-width: 32px;
-            text-align: center;
-        }
-
+        .page-num { font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 0.5px solid var(--border); background: var(--bg-secondary); color: var(--text-muted); cursor: pointer; min-width: 32px; text-align: center; }
         .page-num:hover { color: var(--text-primary); }
-        .page-num.current {
-            background: var(--teal);
-            color: #fff;
-            border-color: var(--teal);
-        }
+        .page-num.current { background: var(--teal); color: #fff; border-color: var(--teal); }
 
-        /* Loading state */
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: var(--text-muted);
-            font-size: 13px;
-        }
+        .loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 13px; }
+        .empty   { text-align: center; padding: 60px; color: var(--text-muted); font-size: 13px; }
 
-        .empty {
-            text-align: center;
-            padding: 60px;
-            color: var(--text-muted);
-            font-size: 13px;
+        /* new alert highlight */
+        @keyframes rowPulse {
+            0%   { background: rgba(29,158,117,0.12); }
+            100% { background: transparent; }
         }
+        .new-row { animation: rowPulse 2s ease forwards; }
     </style>
 </head>
 <body>
@@ -367,38 +237,20 @@
 
 <div class="main">
 
-    <!-- Stats row -->
     <div class="stats-row">
-        <div class="stat-card">
-            <div class="stat-label">Total Alerts</div>
-            <div class="stat-val blue" id="totalAlerts">—</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">Active Alerts</div>
-            <div class="stat-val amber" id="activeAlerts">—</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">Critical</div>
-            <div class="stat-val red" id="criticalAlerts">—</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">Resolved</div>
-            <div class="stat-val teal" id="resolvedAlerts">—</div>
-        </div>
+        <div class="stat-card"><div class="stat-label">Total Alerts</div><div class="stat-val blue"  id="totalAlerts">—</div></div>
+        <div class="stat-card"><div class="stat-label">Active Alerts</div><div class="stat-val amber" id="activeAlerts">—</div></div>
+        <div class="stat-card"><div class="stat-label">Critical</div><div class="stat-val red"   id="criticalAlerts">—</div></div>
+        <div class="stat-card"><div class="stat-label">Resolved</div><div class="stat-val teal"  id="resolvedAlerts">—</div></div>
     </div>
 
-    <!-- Page header + controls -->
     <div class="page-header">
         <div>
             <div class="page-title">All Alerts</div>
             <div class="page-subtitle" id="pageSubtitle">Loading...</div>
         </div>
         <div class="controls">
-            <!-- Sort toggle -->
-            <button class="sort-btn" onclick="toggleSort()" id="sortBtn">
-                ↓ Newest First
-            </button>
-            <!-- Filter pills -->
+            <button class="sort-btn" onclick="toggleSort()" id="sortBtn">↓ Newest First</button>
             <div class="filter-pills">
                 <div class="pill" style="background:var(--teal);color:#fff;border-color:var(--teal)" onclick="setFilter('all', this)">All</div>
                 <div class="pill" onclick="setFilter('CRITICAL', this)">Critical</div>
@@ -408,7 +260,6 @@
         </div>
     </div>
 
-    <!-- Alerts table -->
     <div class="table-wrap">
         <table>
             <thead>
@@ -418,17 +269,17 @@
                 <th>Rule Type</th>
                 <th>Supplier</th>
                 <th>Message</th>
+                <th>AI Analysis</th>
                 <th>Time</th>
                 <th>Action</th>
             </tr>
             </thead>
             <tbody id="alertTableBody">
-            <tr><td colspan="7" class="loading">Loading alerts...</td></tr>
+            <tr><td colspan="8" class="loading">Loading alerts...</td></tr>
             </tbody>
         </table>
     </div>
 
-    <!-- Pagination -->
     <div class="pagination">
         <div class="page-info" id="pageInfo">—</div>
         <div class="page-btns">
@@ -441,18 +292,16 @@
 </div>
 
 <script>
-    // ══════════════════════════════════════════════════════════════════════════
-    // ChainPulse — Alert Center
-    // ══════════════════════════════════════════════════════════════════════════
+    let currentPage   = 0;
+    let totalPages    = 0;
+    let totalElements = 0;
+    let sortDirection = 'desc';
+    let currentFilter = 'all';
+    const PAGE_SIZE   = 20;
 
-    let currentPage    = 0;
-    let totalPages     = 0;
-    let totalElements  = 0;
-    let sortDirection  = 'desc';   // desc = newest first, asc = oldest first
-    let currentFilter  = 'all';
-    const PAGE_SIZE    = 20;
+    // Store AI analyses keyed by alert ID
+    const aiAnalysisStore = {};
 
-    // ── Load stats ────────────────────────────────────────────────────────────
     async function loadStats() {
         const res   = await fetch('/api/alerts/stats');
         const stats = await res.json();
@@ -462,20 +311,12 @@
         document.getElementById('resolvedAlerts').textContent = stats.resolvedAlerts ?? '—';
     }
 
-    // ── Load alerts page ──────────────────────────────────────────────────────
     async function loadAlerts(page = 0) {
         const tbody = document.getElementById('alertTableBody');
-        tbody.innerHTML = '<tr><td colspan="7" class="loading">Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">Loading...</td></tr>';
 
         try {
-            // Build URL based on filter
-            let url;
-            if (currentFilter === 'resolved') {
-                url = `/api/alerts?page=${page}&size=${PAGE_SIZE}&sortBy=createdAt&direction=${sortDirection}`;
-            } else {
-                url = `/api/alerts?page=${page}&size=${PAGE_SIZE}&sortBy=createdAt&direction=${sortDirection}`;
-            }
-
+            const url  = `/api/alerts?page=${page}&size=${PAGE_SIZE}&sortBy=createdAt&direction=${sortDirection}`;
             const res  = await fetch(url);
             const data = await res.json();
 
@@ -483,15 +324,10 @@
             totalElements = data.totalElements;
             currentPage   = data.number;
 
-            // Filter client-side based on selection
             let alerts = data.content;
-            if (currentFilter === 'CRITICAL') {
-                alerts = alerts.filter(a => a.severity === 'CRITICAL' && !a.resolved);
-            } else if (currentFilter === 'WARNING') {
-                alerts = alerts.filter(a => a.severity === 'WARNING' && !a.resolved);
-            } else if (currentFilter === 'resolved') {
-                alerts = alerts.filter(a => a.resolved);
-            }
+            if (currentFilter === 'CRITICAL')  alerts = alerts.filter(a => a.severity === 'CRITICAL' && !a.resolved);
+            else if (currentFilter === 'WARNING') alerts = alerts.filter(a => a.severity === 'WARNING' && !a.resolved);
+            else if (currentFilter === 'resolved') alerts = alerts.filter(a => a.resolved);
 
             renderTable(alerts);
             renderPagination();
@@ -499,45 +335,77 @@
             document.getElementById('pageSubtitle').textContent =
                 `${totalElements} total alerts · Page ${currentPage + 1} of ${totalPages}`;
 
-        } catch (e) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty">Failed to load alerts</td></tr>';
-            console.error(e);
+        } catch(e) {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty">Failed to load alerts</td></tr>';
         }
     }
 
-    // ── Render table rows ─────────────────────────────────────────────────────
     function renderTable(alerts) {
         const tbody = document.getElementById('alertTableBody');
-
         if (!alerts || alerts.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty">No alerts found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="empty">No alerts found</td></tr>';
             return;
         }
 
-        tbody.innerHTML = alerts.map(a => `
-        <tr id="row-${a.id}">
-            <td style="color:var(--text-muted);font-size:11px">#${a.id}</td>
-            <td><span class="severity-badge ${a.severity}">${a.severity}</span></td>
-            <td><span class="rule-type">${a.ruleType?.replace(/_/g, ' ')}</span></td>
-            <td><span class="supplier-name">${a.supplier?.name ?? '—'}</span></td>
-            <td class="message-cell" title="${a.message}">${a.message}</td>
-            <td style="white-space:nowrap;font-size:11px">
-                ${new Date(a.createdAt).toLocaleString('en-IN', {
-            day:'2-digit', month:'short',
-            hour:'2-digit', minute:'2-digit'
-        })}
-            </td>
-            <td>
-                ${a.resolved
-            ? '<span class="resolved-label">✓ Resolved</span>'
-            : `<button class="resolve-btn" onclick="resolveAlert(${a.id})">✓ Resolve</button>`
-        }
-            </td>
-        </tr>
-    `).join('');
+        tbody.innerHTML = alerts.map(a => {
+            const aiHtml = buildAiCell(a);
+            return `
+            <tr id="row-${a.id}">
+                <td style="color:var(--text-muted);font-size:11px">#${a.id}</td>
+                <td><span class="severity-badge ${a.severity}">${a.severity}</span></td>
+                <td><span class="rule-type">${a.ruleType?.replace(/_/g, ' ')}</span></td>
+                <td><span class="supplier-name">${a.supplier?.name ?? '—'}</span></td>
+                <td class="message-cell" title="${a.message}">${a.message}</td>
+                <td class="ai-cell" id="ai-cell-${a.id}">${aiHtml}</td>
+                <td style="white-space:nowrap;font-size:11px">
+                    ${new Date(a.createdAt).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}
+                </td>
+                <td>
+                    ${a.resolved
+                ? '<span class="resolved-label">✓ Resolved</span>'
+                : `<button class="resolve-btn" onclick="resolveAlert(${a.id})">✓ Resolve</button>`}
+                </td>
+            </tr>`;
+        }).join('');
     }
 
-    // ── Render pagination numbers ─────────────────────────────────────────────
+    function buildAiCell(alert) {
+        if (alert.severity !== 'CRITICAL') {
+            return '<span style="color:var(--text-muted);font-size:10px">—</span>';
+        }
+        const stored = aiAnalysisStore[alert.id];
+        if (stored) {
+            return `
+            <div>
+                <span class="ai-badge" onclick="toggleAiExpand(${alert.id})">🤖 View analysis</span>
+                <div class="ai-expand" id="ai-expand-${alert.id}">${escapeHtml(stored)}</div>
+            </div>`;
+        }
+        return `<div class="ai-thinking-cell"><div class="ai-spinner-sm"></div><span>Analyzing...</span></div>`;
+    }
+
+    function toggleAiExpand(alertId) {
+        const el = document.getElementById(`ai-expand-${alertId}`);
+        if (!el) return;
+        el.style.display = el.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Receive AI analysis via WebSocket ─────────────────────────────────────
+    function applyAiAnalysis(alertId, analysis) {
+        aiAnalysisStore[alertId] = analysis;
+        const cell = document.getElementById(`ai-cell-${alertId}`);
+        if (!cell) return;
+        cell.innerHTML = `
+        <div>
+            <span class="ai-badge" onclick="toggleAiExpand(${alertId})">🤖 View analysis</span>
+            <div class="ai-expand" id="ai-expand-${alertId}">${escapeHtml(analysis)}</div>
+        </div>`;
+    }
+
     function renderPagination() {
         const prevBtn = document.getElementById('prevBtn');
         const nextBtn = document.getElementById('nextBtn');
@@ -547,7 +415,6 @@
         prevBtn.disabled = currentPage === 0;
         nextBtn.disabled = currentPage >= totalPages - 1;
 
-        // Show page numbers — current ± 2
         const start = Math.max(0, currentPage - 2);
         const end   = Math.min(totalPages - 1, currentPage + 2);
 
@@ -564,64 +431,96 @@
         info.textContent = `Showing ${from}–${to} of ${totalElements} alerts`;
     }
 
-    // ── Navigate to page ──────────────────────────────────────────────────────
     function goToPage(page) {
         if (page < 0 || page >= totalPages) return;
         loadAlerts(page);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // ── Toggle sort direction ─────────────────────────────────────────────────
     function toggleSort() {
         sortDirection = sortDirection === 'desc' ? 'asc' : 'desc';
         document.getElementById('sortBtn').textContent =
             sortDirection === 'desc' ? '↓ Newest First' : '↑ Oldest First';
         loadAlerts(0);
     }
-    // ── Set Filter ─────────────────────────────────────────────────
+
     function setFilter(filter, el) {
         currentFilter = filter;
-        // Remove active styling from all pills
         document.querySelectorAll('.pill').forEach(p => {
-            p.style.background = '';
-            p.style.color = '';
-            p.style.borderColor = '';
+            p.style.background = ''; p.style.color = ''; p.style.borderColor = '';
         });
-        // Highlight selected pill in teal
-        el.style.background = 'var(--teal)';
-        el.style.color = '#fff';
+        el.style.background  = 'var(--teal)';
+        el.style.color       = '#fff';
         el.style.borderColor = 'var(--teal)';
         loadAlerts(0);
     }
 
-    // ── Resolve alert ─────────────────────────────────────────────────────────
     async function resolveAlert(alertId) {
         try {
             const res = await fetch(`/api/alerts/${alertId}/resolve`, { method: 'PUT' });
             if (res.ok) {
-                // Update the row without full reload
                 const row = document.getElementById(`row-${alertId}`);
                 if (row) {
                     const btn = row.querySelector('.resolve-btn');
-                    if (btn) {
-                        btn.outerHTML = '<span class="resolved-label">✓ Resolved</span>';
-                    }
+                    if (btn) btn.outerHTML = '<span class="resolved-label">✓ Resolved</span>';
                 }
-                loadStats(); // Refresh stats
+                loadStats();
             }
-        } catch (e) {
-            console.error('Failed to resolve:', e);
-        }
+        } catch(e) { console.error('Failed to resolve:', e); }
     }
 
-    // ── Boot ──────────────────────────────────────────────────────────────────
+    // ── WebSocket — receive live alerts + AI analysis ─────────────────────────
+    function connectWebSocket() {
+        const socket = new SockJS('/ws');
+        const stomp  = Stomp.over(socket);
+        stomp.debug  = null;
+
+        stomp.connect({}, function() {
+            // New alert arrives — prepend row
+            stomp.subscribe('/topic/alerts', function(msg) {
+                const alert = JSON.parse(msg.body);
+                const tbody = document.getElementById('alertTableBody');
+                const existing = document.getElementById(`row-${alert.id}`);
+                if (existing) return;
+
+                const tempRow = document.createElement('tr');
+                tempRow.id        = `row-${alert.id}`;
+                tempRow.className = 'new-row';
+                tempRow.innerHTML = `
+                <td style="color:var(--text-muted);font-size:11px">#${alert.id}</td>
+                <td><span class="severity-badge ${alert.severity}">${alert.severity}</span></td>
+                <td><span class="rule-type">${alert.ruleType?.replace(/_/g,' ')}</span></td>
+                <td><span class="supplier-name">${alert.supplierName || '—'}</span></td>
+                <td class="message-cell">${alert.message}</td>
+                <td class="ai-cell" id="ai-cell-${alert.id}">
+                    ${alert.severity === 'CRITICAL'
+                    ? '<div class="ai-thinking-cell"><div class="ai-spinner-sm"></div><span>Analyzing...</span></div>'
+                    : '<span style="color:var(--text-muted);font-size:10px">—</span>'}
+                </td>
+                <td style="white-space:nowrap;font-size:11px">Just now</td>
+                <td><button class="resolve-btn" onclick="resolveAlert(${alert.id})">✓ Resolve</button></td>`;
+
+                const firstRow = tbody.querySelector('tr');
+                tbody.insertBefore(tempRow, firstRow);
+                loadStats();
+            });
+
+            // AI analysis arrives — update the cell
+            stomp.subscribe('/topic/ai-analysis', function(msg) {
+                const data = JSON.parse(msg.body);
+                applyAiAnalysis(data.alertId, data.analysis);
+            });
+
+        }, function() {
+            setTimeout(connectWebSocket, 5000);
+        });
+    }
+
     loadStats();
     loadAlerts(0);
+    connectWebSocket();
 
-    setInterval(() => {
-        loadAlerts(currentPage);
-        loadStats();
-    }, 30000);
+    setInterval(() => { loadAlerts(currentPage); loadStats(); }, 30000);
 </script>
 
 </body>

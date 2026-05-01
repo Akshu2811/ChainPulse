@@ -83,7 +83,7 @@ public class ShipmentEventSimulator {
      * 4. Creates a ShipmentEventDto
      * 5. Sends it to Kafka via KafkaProducerService
      */
-    @Scheduled(fixedRate = 15000)
+    @Scheduled(fixedRate = 45000)
     public void simulateShipmentEvent() {
 
         // Step 1: Pick a random supplier

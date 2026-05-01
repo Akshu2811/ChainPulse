@@ -5,18 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChainPulse — Supply Chain Disruption Alert Engine</title>
 
-    <!-- Google Fonts — Inter for clean modern look -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-    <!-- SockJS + STOMP — for WebSocket connection -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
-
-    <!-- Chart.js — for disruption trend bar chart -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 
     <style>
-        /* ── CSS Variables — dark theme color palette ─────────────────── */
         :root {
             --bg-primary:    #0f1117;
             --bg-secondary:  #1a1f2e;
@@ -36,7 +30,6 @@
             --purple:        #7F77DD;
         }
 
-        /* ── Reset + Base ─────────────────────────────────────────────── */
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
@@ -47,7 +40,6 @@
             font-size: 14px;
         }
 
-        /* ── Top Navigation Bar ───────────────────────────────────────── */
         .navbar {
             display: flex;
             justify-content: space-between;
@@ -60,22 +52,11 @@
             z-index: 100;
         }
 
-        .logo {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--text-primary);
-            letter-spacing: -0.3px;
-        }
-
+        .logo { font-size: 16px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.3px; }
         .logo span { color: var(--teal); }
 
-        .nav-right {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
+        .nav-right { display: flex; align-items: center; gap: 16px; }
 
-        /* WebSocket status dot */
         .ws-status {
             display: flex;
             align-items: center;
@@ -88,36 +69,15 @@
             border: 0.5px solid var(--border);
         }
 
-        .ws-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: var(--text-muted);
-            transition: background 0.3s;
-        }
-
+        .ws-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); transition: background 0.3s; }
         .ws-dot.connected { background: var(--teal); }
         .ws-dot.disconnected { background: var(--red); }
 
-        .last-updated {
-            font-size: 11px;
-            color: var(--text-muted);
-        }
+        .last-updated { font-size: 11px; color: var(--text-muted); }
 
-        /* ── Main Layout ──────────────────────────────────────────────── */
-        .main {
-            padding: 20px 24px;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
+        .main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
 
-        /* ── Metric Cards Row ─────────────────────────────────────────── */
-        .metrics {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            margin-bottom: 16px;
-        }
+        .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
 
         .metric-card {
             background: var(--bg-secondary);
@@ -126,45 +86,18 @@
             padding: 16px 18px;
             transition: border-color 0.2s;
         }
-
         .metric-card:hover { border-color: rgba(255,255,255,0.15); }
-
-        .metric-label {
-            font-size: 11px;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 8px;
-            font-weight: 500;
-        }
-
-        .metric-value {
-            font-size: 28px;
-            font-weight: 600;
-            line-height: 1;
-            margin-bottom: 4px;
-        }
-
-        .metric-sub {
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-
+        .metric-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; font-weight: 500; }
+        .metric-value { font-size: 28px; font-weight: 600; line-height: 1; margin-bottom: 4px; }
+        .metric-sub { font-size: 11px; color: var(--text-muted); }
         .metric-card.teal .metric-value { color: var(--teal); }
         .metric-card.amber .metric-value { color: var(--amber); }
         .metric-card.red   .metric-value { color: var(--red); }
         .metric-card.blue  .metric-value { color: var(--blue); }
 
-        /* ── Main Grid — left panel + right panel ─────────────────────── */
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 320px;
-            gap: 12px;
-        }
-
+        .grid { display: grid; grid-template-columns: 1fr 340px; gap: 12px; }
         .left-col { display: flex; flex-direction: column; gap: 12px; }
 
-        /* ── Panel base style ─────────────────────────────────────────── */
         .panel {
             background: var(--bg-secondary);
             border: 0.5px solid var(--border);
@@ -172,75 +105,28 @@
             padding: 16px;
         }
 
-        .panel-title {
-            font-size: 11px;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            font-weight: 500;
-            margin-bottom: 14px;
-        }
+        .panel-title { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; margin-bottom: 14px; }
 
-        /* ── Supplier Health Panel ────────────────────────────────────── */
-        .supplier-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 0;
-            border-bottom: 0.5px solid var(--border);
-        }
-
+        .supplier-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
         .supplier-row:last-child { border-bottom: none; }
-
         .supplier-info { flex: 1; min-width: 0; }
+        .supplier-name { font-size: 13px; font-weight: 500; color: var(--text-primary); margin-bottom: 2px; }
+        .supplier-meta { font-size: 11px; color: var(--text-muted); }
 
-        .supplier-name {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--text-primary);
-            margin-bottom: 2px;
-        }
-
-        .supplier-meta {
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-
-        /* SLA compliance bar */
-        .sla-bar-wrap {
-            flex: 1;
-            height: 4px;
-            background: rgba(255,255,255,0.06);
-            border-radius: 2px;
-            overflow: hidden;
-        }
-
-        .sla-bar {
-            height: 100%;
-            border-radius: 2px;
-            transition: width 0.5s ease;
-        }
-
+        .sla-bar-wrap { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+        .sla-bar { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
         .sla-bar.healthy  { background: var(--teal); }
         .sla-bar.at-risk  { background: var(--amber); }
         .sla-bar.critical { background: var(--red); }
 
-        /* Status badge */
-        .badge {
-            font-size: 10px;
-            padding: 3px 9px;
-            border-radius: 20px;
-            font-weight: 500;
-            white-space: nowrap;
-        }
-
+        .badge { font-size: 10px; padding: 3px 9px; border-radius: 20px; font-weight: 500; white-space: nowrap; }
         .badge.healthy  { background: var(--teal-light);  color: var(--teal);  border: 0.5px solid rgba(29,158,117,0.25); }
         .badge.at-risk  { background: var(--amber-light); color: var(--amber); border: 0.5px solid rgba(239,159,39,0.25); }
         .badge.critical { background: var(--red-light);   color: var(--red);   border: 0.5px solid rgba(226,75,74,0.25); }
 
-        /* ── Live Alert Feed ──────────────────────────────────────────── */
+        /* ── Alert Feed ─────────────────────────────────────────────── */
         .alert-feed {
-            max-height: 520px;
+            max-height: 580px;
             overflow-y: auto;
             scrollbar-width: thin;
             scrollbar-color: var(--bg-tertiary) transparent;
@@ -263,32 +149,82 @@
         .alert-item.WARNING  { background: var(--amber-light); border-color: var(--amber); }
         .alert-item.INFO     { background: var(--teal-light);  border-color: var(--teal); }
 
-        .alert-title {
-            font-size: 12px;
-            font-weight: 500;
-            color: var(--text-primary);
-            margin-bottom: 3px;
-        }
+        .alert-title { font-size: 12px; font-weight: 500; color: var(--text-primary); margin-bottom: 3px; }
+        .alert-meta  { font-size: 11px; color: var(--text-muted); }
 
-        .alert-meta {
+        /* ── AI Analysis Panel ──────────────────────────────────────── */
+        .ai-analysis {
+            margin-top: 8px;
+            padding: 8px 10px;
+            background: rgba(29,158,117,0.06);
+            border-left: 2px solid var(--teal);
+            border-radius: 4px;
             font-size: 11px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            animation: fadeIn 0.4s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .ai-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 5px;
+        }
+
+        .ai-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--teal);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .ai-thinking {
+            margin-top: 8px;
+            padding: 6px 10px;
+            background: rgba(29,158,117,0.04);
+            border-left: 2px solid rgba(29,158,117,0.3);
+            border-radius: 4px;
+            font-size: 10px;
             color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            animation: fadeIn 0.3s ease;
         }
 
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: var(--text-muted);
-            font-size: 13px;
+        .ai-spinner {
+            width: 8px;
+            height: 8px;
+            border: 1.5px solid rgba(29,158,117,0.3);
+            border-top-color: var(--teal);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            flex-shrink: 0;
         }
 
-        /* ── Chart Panel ──────────────────────────────────────────────── */
-        .chart-wrap {
-            height: 180px;
-            position: relative;
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ── Loading skeleton ─────────────────────────────────────────── */
+        .ai-text { white-space: pre-line; }
+
+        .ai-show-more {
+            color: var(--teal);
+            cursor: pointer;
+            font-size: 10px;
+            margin-top: 4px;
+            display: inline-block;
+        }
+        .ai-show-more:hover { text-decoration: underline; }
+
+        /* ── Chart ─────────────────────────────────────────────────── */
+        .chart-wrap { height: 180px; position: relative; }
+
         .skeleton {
             background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-secondary) 50%, var(--bg-tertiary) 75%);
             background-size: 200% 100%;
@@ -302,12 +238,14 @@
             100% { background-position: -200% 0; }
         }
 
-        /* ── Responsive ───────────────────────────────────────────────── */
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 13px; }
+
         @media (max-width: 900px) {
             .grid    { grid-template-columns: 1fr; }
             .metrics { grid-template-columns: repeat(2, 1fr); }
         }
-        /* ── Toast notifications ──────────────────────────────────────────────── */
+
+        /* ── Toast ──────────────────────────────────────────────────── */
         .toast-container {
             position: fixed;
             bottom: 24px;
@@ -335,27 +273,20 @@
         .toast.CRITICAL { border-left: 3px solid var(--red); }
         .toast.WARNING  { border-left: 3px solid var(--amber); }
 
-        @keyframes toastIn {
-            from { opacity: 0; transform: translateX(40px); }
-            to   { opacity: 1; transform: translateX(0); }
-        }
+        @keyframes toastIn  { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+        @keyframes toastOut { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(40px); } }
 
-        @keyframes toastOut {
-            from { opacity: 1; transform: translateX(0); }
-            to   { opacity: 0; transform: translateX(40px); }
-        }
-
-        .toast-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
-        .toast-body { flex: 1; min-width: 0; }
+        .toast-icon  { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+        .toast-body  { flex: 1; min-width: 0; }
         .toast-title { font-size: 12px; font-weight: 500; color: var(--text-primary); margin-bottom: 2px; }
         .toast-msg   { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .toast-ai    { font-size: 10px; color: var(--teal); margin-top: 3px; }
         .toast-close { font-size: 14px; color: var(--text-muted); cursor: pointer; flex-shrink: 0; line-height: 1; }
         .toast-close:hover { color: var(--text-primary); }
     </style>
 </head>
 <body>
 
-<!-- ── Top Navigation Bar ─────────────────────────────────────────────── -->
 <nav class="navbar">
     <div class="logo">Chain<span>Pulse</span></div>
     <div class="nav-right">
@@ -367,10 +298,8 @@
     </div>
 </nav>
 
-<!-- ── Main Content ───────────────────────────────────────────────────── -->
 <div class="main">
 
-    <!-- Metric Cards Row -->
     <div class="metrics">
         <div class="metric-card teal">
             <div class="metric-label">Total Suppliers</div>
@@ -394,13 +323,9 @@
         </div>
     </div>
 
-    <!-- Main Grid -->
     <div class="grid">
 
-        <!-- Left Column -->
         <div class="left-col">
-
-            <!-- Supplier Health Panel -->
             <div class="panel">
                 <div class="panel-title">Supplier health</div>
                 <div id="supplierList">
@@ -410,14 +335,12 @@
                 </div>
             </div>
 
-            <!-- Disruption Trend Chart -->
             <div class="panel">
                 <div class="panel-title">Disruption trend — last 7 days</div>
                 <div class="chart-wrap">
                     <canvas id="trendChart"></canvas>
                 </div>
             </div>
-
         </div>
 
         <!-- Right Column — Live Alert Feed -->
@@ -434,94 +357,73 @@
     </div>
 </div>
 
-<script>
-    // ══════════════════════════════════════════════════════════════════════════
-    // ChainPulse Dashboard — JavaScript
-    // ══════════════════════════════════════════════════════════════════════════
+<div class="toast-container" id="toastContainer"></div>
 
+<script>
     let stompClient = null;
     let alertCount  = 0;
     let trendChart  = null;
 
-    // ── Utility: format timestamp ─────────────────────────────────────────────
     function timeAgo(dateStr) {
         const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
-        if (diff < 60)  return `${diff}s ago`;
+        if (diff < 60)   return `${diff}s ago`;
         if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
         return `${Math.floor(diff/3600)}h ago`;
     }
 
-    function formatTime(dateStr) {
-        return new Date(dateStr).toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
-    }
-
-    // ── WebSocket status UI ───────────────────────────────────────────────────
     function setWsStatus(connected) {
         const dot  = document.getElementById('wsDot');
         const text = document.getElementById('wsStatusText');
         if (connected) {
-            dot.className  = 'ws-dot connected';
+            dot.className    = 'ws-dot connected';
             text.textContent = 'Live — WebSocket connected';
             text.style.color = 'var(--teal)';
         } else {
-            dot.className  = 'ws-dot disconnected';
+            dot.className    = 'ws-dot disconnected';
             text.textContent = 'Disconnected — reconnecting...';
             text.style.color = 'var(--red)';
         }
     }
 
-    // ── Update metric cards ───────────────────────────────────────────────────
     function updateStats(stats) {
-        document.getElementById('totalSuppliers').textContent  = stats.totalSuppliers  ?? '—';
-        document.getElementById('activeAlerts').textContent    = stats.activeAlerts    ?? '—';
-        document.getElementById('criticalAlerts').textContent  = stats.criticalAlerts  ?? '—';
-        document.getElementById('resolvedAlerts').textContent  = stats.resolvedAlerts  ?? '—';
+        document.getElementById('totalSuppliers').textContent = stats.totalSuppliers  ?? '—';
+        document.getElementById('activeAlerts').textContent   = stats.activeAlerts    ?? '—';
+        document.getElementById('criticalAlerts').textContent = stats.criticalAlerts  ?? '—';
+        document.getElementById('resolvedAlerts').textContent = stats.resolvedAlerts  ?? '—';
         document.getElementById('alertSub').textContent =
             `${stats.warningAlerts ?? 0} warning · ${stats.criticalAlerts ?? 0} critical`;
         document.getElementById('lastUpdated').textContent =
             'Updated ' + new Date().toLocaleTimeString('en-IN');
     }
 
-    // ── Render supplier health panel ──────────────────────────────────────────
     function renderSuppliers(suppliers) {
         const list = document.getElementById('supplierList');
         if (!suppliers || suppliers.length === 0) {
             list.innerHTML = '<div class="empty-state">No suppliers found</div>';
             return;
         }
-
         list.innerHTML = suppliers.map(s => {
-            // Map status to CSS class
-            const statusMap = {
-                'HEALTHY':  'healthy',
-                'AT_RISK':  'at-risk',
-                'CRITICAL': 'critical'
-            };
+            const statusMap   = { 'HEALTHY': 'healthy', 'AT_RISK': 'at-risk', 'CRITICAL': 'critical' };
             const statusClass = statusMap[s.status] || 'healthy';
             const statusLabel = s.status?.replace('_', ' ') || 'Healthy';
-
-            // Bar width based on real status
-            const barWidth = statusClass === 'healthy'  ? 88 :
-                statusClass === 'at-risk'  ? 55 : 25;
-
+            const barWidth    = statusClass === 'healthy' ? 88 : statusClass === 'at-risk' ? 55 : 25;
             return `
-        <div class="supplier-row">
-            <div class="supplier-info">
-                <div class="supplier-name">${s.name}</div>
-                <div class="supplier-meta">${s.location} · SLA: ${s.slaThresholdHours}h · ${s.activeAlerts ?? 0} active alerts</div>
-            </div>
-            <div class="sla-bar-wrap">
-                <div class="sla-bar ${statusClass}" style="width:${barWidth}%"></div>
-            </div>
-            <span class="badge ${statusClass}">${statusLabel}</span>
-        </div>`;
+            <div class="supplier-row">
+                <div class="supplier-info">
+                    <div class="supplier-name">${s.name}</div>
+                    <div class="supplier-meta">${s.location} · SLA: ${s.slaThresholdHours}h · ${s.activeAlerts ?? 0} active alerts</div>
+                </div>
+                <div class="sla-bar-wrap">
+                    <div class="sla-bar ${statusClass}" style="width:${barWidth}%"></div>
+                </div>
+                <span class="badge ${statusClass}">${statusLabel}</span>
+            </div>`;
         }).join('');
     }
 
-    // ── Prepend alert to live feed ────────────────────────────────────────────
+    // ── Add alert card to feed ────────────────────────────────────────────────
     function addAlertToFeed(alert) {
-        const feed = document.getElementById('alertFeed');
-
+        const feed  = document.getElementById('alertFeed');
         const empty = feed.querySelector('.empty-state');
         if (empty) empty.remove();
 
@@ -547,7 +449,12 @@
         <div class="alert-meta">${alert.message?.substring(0, 80)}...</div>
         <div class="alert-meta" style="margin-top:3px;opacity:0.6">
             ${alert.createdAt ? new Date(alert.createdAt).toLocaleTimeString('en-IN') : 'Just now'} · ${alert.severity}
-        </div>`;
+        </div>
+        ${alert.severity === 'CRITICAL' ? `
+        <div class="ai-thinking" id="ai-thinking-${alert.id}">
+            <div class="ai-spinner"></div>
+            <span>🤖 Gemini analyzing root cause...</span>
+        </div>` : ''}`;
 
         feed.insertBefore(div, feed.firstChild);
 
@@ -558,12 +465,59 @@
         document.getElementById('alertCount').textContent = `${alertCount} new`;
     }
 
+    // ── Show AI analysis on alert card ───────────────────────────────────────
+    function showAiAnalysis(alertId, analysis) {
+        const alertEl = document.getElementById(`alert-${alertId}`);
+        if (!alertEl) return;
+
+        // Remove the thinking spinner
+        const thinking = document.getElementById(`ai-thinking-${alertId}`);
+        if (thinking) thinking.remove();
+
+        // Don't duplicate
+        if (alertEl.querySelector('.ai-analysis')) return;
+
+        // Truncate to first 220 chars for compact view
+        const shortLen = 220;
+        const isLong   = analysis.length > shortLen;
+        const shortText = isLong ? analysis.substring(0, shortLen) + '...' : analysis;
+
+        const aiDiv = document.createElement('div');
+        aiDiv.className = 'ai-analysis';
+        aiDiv.innerHTML = `
+        <div class="ai-header">
+            <span>🤖</span>
+            <span class="ai-label">Gemini Root Cause</span>
+        </div>
+        <div class="ai-text" id="ai-text-${alertId}">${escapeHtml(shortText)}</div>
+        ${isLong ? `<span class="ai-show-more" onclick="expandAi(${alertId}, \`${escapeForAttr(analysis)}\`)">Show full analysis ↓</span>` : ''}`;
+
+        alertEl.appendChild(aiDiv);
+    }
+
+    function expandAi(alertId, fullText) {
+        const textEl = document.getElementById(`ai-text-${alertId}`);
+        if (textEl) textEl.textContent = fullText;
+        // Remove show more button
+        const btn = textEl?.nextElementSibling;
+        if (btn && btn.classList.contains('ai-show-more')) btn.remove();
+    }
+
+    function escapeHtml(str) {
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    function escapeForAttr(str) {
+        return str.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+    }
+
     async function loadTrendChart() {
         try {
             const res  = await fetch('/api/alerts/stats/trend?days=7');
             const data = await res.json();
-
-            // Use pre-computed counts from server
             const countPerDay = data.countPerDay || {};
             const labels = Object.keys(countPerDay);
             const values = Object.values(countPerDay);
@@ -589,101 +543,60 @@
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: {
-                            ticks: { color: '#64748b', font: { size: 10 } },
-                            grid:  { color: 'rgba(255,255,255,0.04)' }
-                        },
-                        y: {
-                            ticks: { color: '#64748b', font: { size: 10 } },
-                            grid:  { color: 'rgba(255,255,255,0.04)' },
-                            beginAtZero: true
-                        }
+                        x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                        y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' }, beginAtZero: true }
                     }
                 }
             });
-        } catch (e) {
-            console.error('Chart load failed:', e);
-        }
+        } catch(e) { console.error('Chart load failed:', e); }
     }
-    // ── Load initial data from REST APIs ─────────────────────────────────────
+
     async function loadInitialData() {
         try {
-            // Load stats
             const statsRes = await fetch('/api/stats');
-            const stats    = await statsRes.json();
-            updateStats(stats);
+            updateStats(await statsRes.json());
 
-            // Load suppliers WITH real health scores
             const suppRes   = await fetch('/api/suppliers');
             const suppliers = await suppRes.json();
-
-            // Fetch health for each supplier in parallel
-            const healthPromises = suppliers.map(s =>
-                fetch(`/api/suppliers/${s.id}/health`).then(r => r.json())
+            const healthData = await Promise.all(
+                suppliers.map(s => fetch(`/api/suppliers/${s.id}/health`).then(r => r.json()))
             );
-            const healthData = await Promise.all(healthPromises);
-
-            // Merge health data into supplier objects
             const suppliersWithHealth = suppliers.map((s, i) => ({
-                ...s,
-                status:       healthData[i].status,
-                activeAlerts: healthData[i].activeAlerts,
+                ...s, status: healthData[i].status, activeAlerts: healthData[i].activeAlerts
             }));
-
-            // Sort by worst health first (Critical → At Risk → Healthy)
             suppliersWithHealth.sort((a, b) => {
                 const order = { 'CRITICAL': 0, 'AT_RISK': 1, 'HEALTHY': 2 };
                 return (order[a.status] ?? 2) - (order[b.status] ?? 2);
             });
-
             renderSuppliers(suppliersWithHealth);
 
-            // Load recent alerts into feed
-            const alertRes  = await fetch('/api/alerts/active');
-            const alerts    = await alertRes.json();
-            alerts.slice(-10).reverse().forEach(a => addAlertToFeed({
-                ...a,
-                supplierName: a.supplier?.name,
-            }));
+            const alertRes = await fetch('/api/alerts/active');
+            const alerts   = await alertRes.json();
+            alerts.slice(-10).reverse().forEach(a => addAlertToFeed({ ...a, supplierName: a.supplier?.name }));
 
-            // Load chart
             loadTrendChart();
-
-        } catch (e) {
-            console.error('Initial data load failed:', e);
-        }
+        } catch(e) { console.error('Initial data load failed:', e); }
     }
 
-    // ── Resolve alert ─────────────────────────────────────────────────────────
     async function resolveAlert(alertId) {
         try {
-            const res = await fetch(`/api/alerts/${alertId}/resolve`, {
-                method: 'PUT'
-            });
-
+            const res = await fetch(`/api/alerts/${alertId}/resolve`, { method: 'PUT' });
             if (res.ok) {
-                // Remove alert card from feed with fade animation
                 const alertEl = document.getElementById(`alert-${alertId}`);
                 if (alertEl) {
                     alertEl.style.transition = 'opacity 0.3s, transform 0.3s';
-                    alertEl.style.opacity = '0';
-                    alertEl.style.transform = 'translateX(20px)';
+                    alertEl.style.opacity    = '0';
+                    alertEl.style.transform  = 'translateX(20px)';
                     setTimeout(() => alertEl.remove(), 300);
                 }
-                console.log(`✅ Alert ${alertId} resolved`);
             }
-        } catch (e) {
-            console.error('Failed to resolve alert:', e);
-        }
+        } catch(e) { console.error('Failed to resolve alert:', e); }
     }
 
-    // ── Toast notifications ───────────────────────────────────────────────────
     function showToast(alert) {
-        // Only show toasts for CRITICAL and WARNING alerts
         if (alert.severity === 'INFO') return;
-
         const container = document.getElementById('toastContainer');
-        const icon = alert.severity === 'CRITICAL' ? '🚨' : '⚠️';
+        const icon      = alert.severity === 'CRITICAL' ? '🚨' : '⚠️';
 
         const toast = document.createElement('div');
         toast.className = `toast ${alert.severity}`;
@@ -692,76 +605,70 @@
         <div class="toast-body">
             <div class="toast-title">${alert.severity} — ${alert.supplierName || 'Unknown'}</div>
             <div class="toast-msg">${alert.ruleType?.replace(/_/g,' ')} · ${alert.message?.substring(0, 50)}...</div>
+            ${alert.severity === 'CRITICAL' ? '<div class="toast-ai">🤖 Gemini analyzing root cause...</div>' : ''}
         </div>
         <div class="toast-close" onclick="this.parentElement.remove()">✕</div>`;
 
         container.appendChild(toast);
 
-        // Auto-remove after 5 seconds
         setTimeout(() => {
             if (toast.parentElement) {
                 toast.style.animation = 'toastOut 0.3s ease forwards';
                 setTimeout(() => toast.remove(), 300);
             }
-        }, 5000);
+        }, 6000);
 
-        // Keep max 5 toasts visible
         const toasts = container.querySelectorAll('.toast');
         if (toasts.length > 5) toasts[0].remove();
     }
 
-    // ── Connect WebSocket via STOMP ───────────────────────────────────────────
+    // ── WebSocket Connection ──────────────────────────────────────────────────
     function connectWebSocket() {
         const socket = new SockJS('/ws');
         stompClient  = Stomp.over(socket);
-
-        // Suppress STOMP debug logs in console
         stompClient.debug = null;
 
         stompClient.connect({}, function(frame) {
             setWsStatus(true);
             console.log('✅ ChainPulse WebSocket connected');
 
-            // Subscribe to live alert feed
+            // Live alerts
             stompClient.subscribe('/topic/alerts', function(message) {
                 const alert = JSON.parse(message.body);
                 addAlertToFeed(alert);
-                showToast(alert);  // ← add this line
+                showToast(alert);
             });
 
-            // Subscribe to live stats updates
+            // Live stats
             stompClient.subscribe('/topic/stats', function(message) {
-                const stats = JSON.parse(message.body);
-                updateStats(stats);
+                updateStats(JSON.parse(message.body));
+            });
+
+            // ── AI Root Cause Analysis ────────────────────────────────────
+            stompClient.subscribe('/topic/ai-analysis', function(message) {
+                const data = JSON.parse(message.body);
+                showAiAnalysis(data.alertId, data.analysis);
             });
 
         }, function(error) {
-            // On disconnect — try reconnecting after 5 seconds
             setWsStatus(false);
-            console.log('WebSocket disconnected — retrying in 5s...');
             setTimeout(connectWebSocket, 5000);
         });
     }
 
-    // ── Boot the dashboard ────────────────────────────────────────────────────
     loadInitialData();
     connectWebSocket();
 
-    // Refresh chart every 60 seconds
     setInterval(loadTrendChart, 60000);
-    // Refresh supplier health every 30 seconds
     setInterval(async () => {
         try {
-            const suppRes   = await fetch('/api/suppliers');
-            const suppliers = await suppRes.json();
-            const healthPromises = suppliers.map(s =>
-                fetch(`/api/suppliers/${s.id}/health`).then(r => r.json())
+            const suppRes    = await fetch('/api/suppliers');
+            const suppliers  = await suppRes.json();
+            const healthData = await Promise.all(
+                suppliers.map(s => fetch(`/api/suppliers/${s.id}/health`).then(r => r.json()))
             );
-            const healthData = await Promise.all(healthPromises);
             const suppliersWithHealth = suppliers.map((s, i) => ({
-                ...s,
-                status:       healthData[i].status,
-                activeAlerts: healthData[i].activeAlerts,
+                ...s, status: healthData[i].status, activeAlerts: healthData[i].activeAlerts
             }));
             suppliersWithHealth.sort((a, b) => {
                 const order = { 'CRITICAL': 0, 'AT_RISK': 1, 'HEALTHY': 2 };
@@ -771,6 +678,5 @@
         } catch(e) { console.error('Supplier refresh failed:', e); }
     }, 30000);
 </script>
-<div class="toast-container" id="toastContainer"></div>
 </body>
 </html>
