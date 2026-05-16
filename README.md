@@ -161,8 +161,9 @@ The project follows standard Spring Boot layered architecture:
 - Java 21
 - Maven 3.9+
 - Docker + Docker Compose
-- A **Google AI API key** with access to Gemini (get one at [aistudio.google.com](https://aistudio.google.com/))
-- PostgreSQL running locally (or update `application.properties` to point at a remote instance)
+- A **Google Cloud project** with Vertex AI enabled and application default credentials configured
+  (`gcloud auth application-default login`)
+- PostgreSQL running locally (or update `application.yml` to point at a remote instance)
 
 ### 1. Clone the repo
 
