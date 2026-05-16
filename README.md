@@ -141,80 +141,17 @@ flowchart TD
 
 ---
 
-## How It Works
-
-**Step 1 — Event Generation**
-`ShipmentEventSimulator` fires every 45 seconds, picking one of five real Indian logistics suppliers (BlueDart, Delhivery, DTDC, Ecom Express, Shadowfax) and a weighted shipment status (40% IN_TRANSIT, 25% DELAYED, 20% STUCK, 15% DELIVERED). It constructs a `ShipmentEventDto` with a tracking number, dispatch time (0–72h ago), and expected delivery time, then publishes it to Kafka topic `shipment-events`.
-
-**Step 2 — Kafka Consumption**
-`ShipmentEventConsumer` deserializes the JSON message into `ShipmentEventDto` using a `JavaTimeModule`-configured `ObjectMapper`, logs the event, and hands it to `SlaRuleEngine.evaluate()`.
-
-**Step 3 — Rule Loading with Cache**
-`SlaRuleEngine` checks Redis key `sla:rules:active` first. On a cache hit, rules are deserialized from JSON. On a miss, it queries PostgreSQL for both global rules and supplier-specific rules, merges them, serializes the list back to Redis with a 5-minute TTL.
-
-**Step 4 — Rule Evaluation**
-Each rule is evaluated by type: transit hours are computed via `ChronoUnit.HOURS.between(dispatchedAt, now)`, checkpoint timeout checks `STUCK` status against threshold, delivery deadline compares `now()` against `expectedAt`. A breach builds a human-readable alert message including tracking number, hours overdue, supplier name, and route.
-
-**Step 5 — Deduplication and Persistence**
-Before writing, the engine calls `RedisService.isDuplicateAlert()`. If the TTL key exists, the alert is dropped silently. Otherwise the `AlertEvent` is saved to PostgreSQL, `AlertBroadcastService.broadcastAlert()` pushes it to `/topic/alerts`, and `markAlertFired()` writes the dedup key.
-
-**Step 6 — AI Analysis (CRITICAL only)**
-For CRITICAL severity, a new `Thread` sleeps 1 second (rate-limit buffer), then calls `AiRootCauseService.analyzeAlert()`. If the alert already has a non-blank `aiAnalysis`, the Gemini call is skipped entirely — idempotent by design. Otherwise Spring AI's `ChatClient` sends a structured prompt with alert metadata and Indian logistics context to Gemini 2.5 Flash. The response (max 200 words, structured as ROOT CAUSE / IMMEDIATE ACTIONS / PREVENTION) is persisted to the `ai_analysis` column and broadcast to `/topic/ai-analysis`.
-
-**Step 7 — Live Dashboard**
-The browser (SockJS + STOMP) subscribes to all three topics at page load. New alerts appear instantly in the feed. `StatsBroadcastTask` pushes fresh metric counts (total/active/critical/warning/resolved alerts) every 10 seconds — the four dashboard cards update without any user interaction.
-
----
 
 ## Project Structure
 
-```
-src/main/java/com/chainpulse/chainpulse/
-│
-├── kafka/
-│   ├── ShipmentEventSimulator.java   — @Scheduled simulator, 5 Indian suppliers
-│   ├── ShipmentEventConsumer.java    — @KafkaListener, wires into SlaRuleEngine
-│   ├── KafkaProducerService.java     — publishes events to shipment-events topic
-│   └── dto/ShipmentEventDto.java     — Kafka message payload
-│
-├── service/
-│   ├── SlaRuleEngine.java            — rule loading (Redis→DB), evaluation, alert creation
-│   ├── RedisService.java             — dedup, SLA state, supplier health, rules cache
-│   ├── AlertBroadcastService.java    — WebSocket push to /topic/alerts|stats|ai-analysis
-│   ├── AiRootCauseService.java       — Spring AI + Gemini, backfill on startup
-│   ├── StatsBroadcastTask.java       — @Scheduled 10s stats push
-│   └── AlertCleanupService.java      — @Scheduled cron daily cleanup
-│
-├── controller/
-│   ├── AlertController.java          — GET/PUT /api/alerts (paginated, stats, trend, resolve)
-│   ├── SupplierController.java       — GET /api/suppliers, /health (Redis-cached)
-│   ├── SlaRuleController.java        — CRUD + toggle for SLA rules
-│   ├── ShipmentController.java       — shipment tracking endpoints
-│   └── StatsController.java          — GET /api/stats (live dashboard metrics)
-│
-├── entity/
-│   ├── AlertEvent.java               — alert_events table, includes ai_analysis column
-│   ├── SlaRule.java                  — sla_rules table, RuleType + AlertSeverity enums
-│   ├── Supplier.java                 — suppliers table, slaThresholdHours field
-│   └── Shipment.java                 — shipments table, ShipmentStatus enum
-│
-├── config/
-│   ├── KafkaConfig.java              — consumer factory, listener container factory
-│   ├── RedisConfig.java              — RedisTemplate<String, String> bean
-│   ├── WebSocketConfig.java          — STOMP broker, /ws endpoint, SockJS fallback
-│   └── SwaggerConfig.java            — OpenAPI metadata, tag descriptions
-│
-└── repository/                       — Spring Data JPA repositories with custom queries
-    ├── AlertEventRepository.java
-    ├── SlaRuleRepository.java
-    ├── SupplierRepository.java
-    └── ShipmentRepository.java
+The project follows standard Spring Boot layered architecture:
 
-src/main/resources/static/
-├── index.html    — live dashboard (metrics, Chart.js trend, real-time alert feed)
-└── alerts.html   — paginated alert center with severity filters
-```
-
+- `kafka/` — event simulator, consumer, producer, DTOs
+- `service/` — SLA rule engine, Redis caching, AI analysis, WebSocket broadcast, cleanup
+- `controller/` — REST endpoints for alerts, suppliers, SLA rules, shipments, stats
+- `entity/` — JPA entities (AlertEvent, Supplier, Shipment, SlaRule)
+- `config/` — Kafka, Redis, WebSocket, Swagger configuration
+- `repository/` — Spring Data JPA repositories with custom queries
 ---
 
 ## Getting Started
@@ -322,15 +259,6 @@ http://localhost:8080/v3/api-docs
 | `PUT` | `/api/sla-rules/{id}/toggle` | Enable / disable a rule |
 | `DELETE` | `/api/sla-rules/{id}` | Delete a rule |
 
-### WebSocket Topics (STOMP)
-
-Connect to `ws://localhost:8080/ws` and subscribe:
-
-| Topic | Payload | Frequency |
-|-------|---------|-----------|
-| `/topic/alerts` | New alert object with supplier, severity, message | On breach |
-| `/topic/stats` | Dashboard metric counts | Every 10s |
-| `/topic/ai-analysis` | `{ alertId, analysis, timestamp }` | After CRITICAL alert |
 
 ---
 
