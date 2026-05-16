@@ -1,0 +1,11 @@
+{
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "code-review-graph"
+  ],
+  "permissions": {
+    "allow": [
+      "mcp__code-review-graph__get_architecture_overview_tool"
+    ]
+  }
+}

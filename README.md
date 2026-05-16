@@ -365,9 +365,14 @@ Connect to `ws://localhost:8080/ws` and subscribe:
 ![Dashboard](docs/screenshots/dashboard.png)
 
 ### Alert Center
-> Full paginated alert history with severity badges and AI analysis
+> Full paginated alert history with severity badges, filters and AI analysis
 
 ![Alert Center](docs/screenshots/alerts.png)
+
+### AI Root Cause Analysis — Gemini 2.5 Flash
+> CRITICAL alert with full Gemini root cause analysis expanded inline.
+
+![AI Analysis](docs/screenshots/ai-analysis.png)
 
 ---
 
