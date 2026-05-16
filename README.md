@@ -11,6 +11,7 @@
 [![Gemini](https://img.shields.io/badge/Gemini%202.5%20Flash-Google%20AI-4285F4?style=flat-square&logo=google&logoColor=white)](https://ai.google.dev/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/Akshu2811/ChainPulse/actions/workflows/ci.yml/badge.svg)](https://github.com/Akshu2811/ChainPulse/actions)
 
 ---
 
@@ -245,25 +246,32 @@ This starts:
 
 ### 3. Configure the application
 
-Create or edit `src/main/resources/application.properties`:
+Create or edit `src/main/resources/application.yml`:
 
-```properties
-# PostgreSQL
-spring.datasource.url=jdbc:postgresql://localhost:5432/chainpulse
-spring.datasource.username=your_pg_user
-spring.datasource.password=your_pg_password
-spring.jpa.hibernate.ddl-auto=update
-
-# Kafka
-spring.kafka.bootstrap-servers=localhost:9092
-
-# Redis
-spring.data.redis.host=localhost
-spring.data.redis.port=6379
-
-# Google Gemini (Spring AI)
-spring.ai.google.genai.api-key=YOUR_GEMINI_API_KEY
-spring.ai.google.genai.chat.model=gemini-2.5-flash
+```yaml
+# src/main/resources/application.yml
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/chainpulse
+    username: your_pg_user
+    password: your_pg_password
+  jpa:
+    hibernate:
+      ddl-auto: update
+  kafka:
+    bootstrap-servers: localhost:9092
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  ai:
+    google:
+      genai:
+        project-id: your_gcp_project_id
+        location: global
+        chat:
+          options:
+            model: gemini-2.5-flash
 ```
 
 ### 4. Run the application
@@ -274,43 +282,10 @@ mvn spring-boot:run
 
 The app starts on `http://localhost:8080`. The simulator begins firing events immediately. Within a few cycles, alerts will appear on the dashboard.
 
-### 5. Seed SLA rules (first run)
-
-The system needs at least one active SLA rule to fire alerts. POST a rule via curl or the Swagger UI:
-
-```bash
-curl -X POST http://localhost:8080/api/sla-rules \
-  -H "Content-Type: application/json" \
-  -d '{
-    "ruleType": "MAX_TRANSIT_HOURS",
-    "thresholdValue": 24,
-    "severity": "CRITICAL",
-    "active": true
-  }'
-```
-
-```bash
-curl -X POST http://localhost:8080/api/sla-rules \
-  -H "Content-Type: application/json" \
-  -d '{
-    "ruleType": "CHECKPOINT_TIMEOUT",
-    "thresholdValue": 4,
-    "severity": "WARNING",
-    "active": true
-  }'
-```
-
-```bash
-curl -X POST http://localhost:8080/api/sla-rules \
-  -H "Content-Type: application/json" \
-  -d '{
-    "ruleType": "DELIVERY_DEADLINE_MISS",
-    "thresholdValue": 0,
-    "severity": "CRITICAL",
-    "active": true
-  }'
-```
-
+### 5. SLA Rules
+SLA rules are automatically seeded on first run via `data.sql` —
+no manual setup required. Rules include MAX_TRANSIT_HOURS (48h),
+CHECKPOINT_TIMEOUT (4h), and DELIVERY_DEADLINE_MISS.
 ---
 
 ## API Documentation
