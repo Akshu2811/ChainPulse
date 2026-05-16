@@ -431,3 +431,84 @@ The AI service plugs into the existing SLA engine workflow: **Shipment Event →
 - Lines of code added: ~150
 - AI analysis capability: Added for CRITICAL alerts
 - Alert intelligence level: Enhanced from basic notifications to actionable insights
+
+---
+
+## 🗓️ Day 6 - May 16, 2026
+
+### 🎯 What was built and why
+**AI Analysis Database Persistence** - Previously, AI root cause analysis was only broadcast via WebSocket and lost if the dashboard wasn't connected. Now the system permanently stores AI analysis results in the PostgreSQL database in a new `aiAnalysis` field on the AlertEvent entity. This means historical AI insights are preserved even after page refreshes, server restarts, or WebSocket disconnections. Operations teams can now look back at past alerts and see the AI's analysis anytime.
+
+**Startup Backfill for Historical Alerts** - Built a smart backfill mechanism that runs on application startup to populate AI analysis for existing CRITICAL alerts that don't have it yet. When ChainPulse starts, it scans the database for CRITICAL alerts without AI analysis and triggers the AI service to generate insights for them. This ensures no historical alerts are left without intelligence, making the system useful immediately even for past disruptions.
+
+**Automated Alert Cleanup Job** - Created a scheduled background job that automatically cleans up old resolved alerts to prevent database bloat. The AlertCleanupService runs daily at 2 AM and deletes resolved alerts older than 30 days. This keeps the database performant and manageable without manual intervention, ensuring the system can run for months or years without accumulating millions of stale alerts.
+
+**Dashboard UI Integration with DB-Stored AI** - Updated both the main dashboard (index.html) and the alert center (alerts.html) to read AI analysis directly from the database instead of relying only on WebSocket broadcasts. Now when a page loads, it immediately shows stored AI analysis for critical alerts, and only shows a spinner for alerts where analysis is still pending. This provides a much better user experience with instant intelligence display.
+
+### 🔧 Key decisions made
+1. **Database Storage Over WebSocket-Only** - Chose to persist AI analysis in PostgreSQL instead of relying solely on WebSocket broadcasts to ensure data durability and historical access
+2. **Startup Backfill Strategy** - Implemented backfill on application startup instead of a separate migration script to automatically handle historical data without manual intervention
+3. **30-Day Retention Policy** - Selected 30 days as the cleanup threshold to balance historical visibility with database performance
+4. **Scheduled Cleanup at 2 AM** - Chose 2 AM for the cleanup job to run during low-traffic periods and minimize impact on operations
+5. **Conditional AI Display** - Updated UI to check database field first, then fall back to in-memory store, then show spinner for pending analysis
+6. **Service Layer Separation** - Moved AI storage logic into AiRootCauseService to keep SlaRuleEngine focused on rule evaluation
+7. **Async Backfill Processing** - Made the backfill process asynchronous to prevent slowing down application startup
+8. **Null-Safe AI Broadcasting** - Added checks to only broadcast AI analysis if it's successfully generated, preventing empty or failed analyses from being sent
+9. **Repository Query Optimization** - Added specific repository methods for finding alerts without AI analysis to make backfill queries efficient
+10. **Entity Field Addition** - Added `aiAnalysis` as a TEXT field to AlertEvent to store potentially long AI responses
+
+### 🐛 Errors faced and how they were fixed
+1. **AI Analysis Not Persisting** - Initially AI analysis was only broadcast via WebSocket and lost on page refresh. Fixed by adding `aiAnalysis` field to AlertEvent entity and updating AiRootCauseService to save to database.
+2. **Historical Alerts Without Intelligence** - Existing CRITICAL alerts had no AI analysis because the feature was added later. Fixed by implementing startup backfill that scans and populates missing analysis.
+3. **Database Bloat Concern** - Alerts were accumulating indefinitely with no cleanup mechanism. Fixed by creating AlertCleanupService with scheduled daily cleanup of old resolved alerts.
+4. **Dashboard Showing Spinner for Old Alerts** - UI was showing "Analyzing..." spinner for alerts that already had AI analysis in the database. Fixed by updating UI logic to check database field first before showing spinner.
+5. **WebSocket Race Condition** - Sometimes WebSocket broadcast arrived before database save, causing UI inconsistency. Fixed by prioritizing database field in UI display logic.
+6. **Backfill Performance** - Initial backfill could be slow with many historical alerts. Fixed by making it asynchronous and adding logging to track progress.
+
+### 📁 Files created or modified
+**Created:**
+- `src/main/java/com/chainpulse/chainpulse/service/AlertCleanupService.java` - Scheduled job for cleaning up old resolved alerts
+
+**Modified:**
+- `src/main/java/com/chainpulse/chainpulse/ChainPulseApplication.java` - Added startup backfill trigger for historical alerts
+- `src/main/java/com/chainpulse/chainpulse/entity/AlertEvent.java` - Added aiAnalysis field for database persistence
+- `src/main/java/com/chainpulse/chainpulse/repository/AlertEventRepository.java` - Added queries for alerts without AI analysis
+- `src/main/java/com/chainpulse/chainpulse/service/AiRootCauseService.java` - Updated to save analysis to database and handle backfill
+- `src/main/java/com/chainpulse/chainpulse/service/SlaRuleEngine.java` - Simplified by moving AI logic to dedicated service
+- `src/main/resources/static/alerts.html` - Updated to read AI analysis from database field
+- `src/main/resources/static/index.html` - Updated to display stored AI analysis immediately
+
+### ⚡ Key concepts learned
+**Database Persistence** - Storing data permanently in a database so it survives restarts and can be retrieved later. Unlike in-memory storage which is lost when the application stops.
+**Backfill** - The process of populating missing data for existing records after a new feature is added. Like going back and filling in missing information in old files.
+**Scheduled Jobs** - Tasks that run automatically at specific times or intervals. Like setting an alarm clock to do something every day at 2 AM.
+**Data Retention Policy** - Rules about how long to keep data before deleting it. Like cleaning out old emails to keep your inbox manageable.
+**Async Processing** - Running tasks in the background so they don't block the main application. Like having an assistant do research while you continue working.
+**Fallback Logic** - Having backup options when the primary choice isn't available. Like checking your phone, then your computer, then asking a friend for information.
+**Entity Field Evolution** - Adding new fields to database entities over time as features grow. Like adding a new column to a spreadsheet.
+
+### 🔗 How today's work connects to the full system
+Today's work made ChainPulse's AI analysis feature production-ready and sustainable. Before today, AI analysis was ephemeral and only visible to users watching the dashboard in real-time. Now:
+
+**Before Day 6**: Critical alert fires → AI analyzes → Broadcasts via WebSocket → Lost if not watching dashboard → No historical intelligence
+**After Day 6**: Critical alert fires → AI analyzes → Saves to database → Broadcasts via WebSocket → Permanent record → Historical access + startup backfill for old alerts
+
+The system now has complete data lifecycle management:
+1. **Persistence** - AI analysis is stored permanently in PostgreSQL
+2. **Backfill** - Historical alerts get intelligence populated automatically
+3. **Cleanup** - Old resolved alerts are automatically removed to prevent bloat
+4. **UI Integration** - Dashboard shows stored intelligence immediately on load
+
+This makes ChainPulse a robust, long-term monitoring solution where AI insights are preserved, accessible, and the database stays healthy automatically.
+
+### 📊 Project statistics
+- Total commits today: 1
+- Files created: 1
+- Files modified: 7
+- Lines of code added: ~259
+- Lines of code removed: ~316 (net simplification)
+- AI analysis persistence: Now stored in database
+- Historical alerts with AI: Backfilled on startup
+- Database cleanup: Automated daily job at 2 AM
+- Alert retention period: 30 days for resolved alerts
+- Dashboard AI display: Instant load from database
