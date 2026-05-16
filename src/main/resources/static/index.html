@@ -430,31 +430,50 @@
         const div = document.createElement('div');
         div.className = `alert-item ${alert.severity || 'INFO'}`;
         div.id = `alert-${alert.id}`;
+
+        // Build AI section — show stored analysis immediately, or spinner if pending
+        let aiSection = '';
+        if (alert.severity === 'CRITICAL') {
+            if (alert.aiAnalysis && alert.aiAnalysis.trim().length > 0) {
+                const shortLen  = 220;
+                const isLong    = alert.aiAnalysis.length > shortLen;
+                const shortText = isLong ? alert.aiAnalysis.substring(0, shortLen) + '...' : alert.aiAnalysis;
+                aiSection = `
+            <div class="ai-analysis">
+                <div class="ai-header"><span>🤖</span><span class="ai-label">Gemini Root Cause</span></div>
+                <div class="ai-text" id="ai-text-${alert.id}">${escapeHtml(shortText)}</div>
+                ${isLong ? `<span class="ai-show-more" onclick="expandAi(${alert.id}, \`${escapeForAttr(alert.aiAnalysis)}\`)">Show full analysis ↓</span>` : ''}
+            </div>`;
+            } else {
+                aiSection = `
+            <div class="ai-thinking" id="ai-thinking-${alert.id}">
+                <div class="ai-spinner"></div>
+                <span>🤖 Gemini analyzing root cause...</span>
+            </div>`;
+            }
+        }
+
         div.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-            <div class="alert-title">${alert.ruleType?.replace(/_/g,' ')} — ${alert.supplierName || alert.supplier?.name || 'Unknown'}</div>
-            <button onclick="resolveAlert(${alert.id})" style="
-                background:rgba(255,255,255,0.08);
-                border:0.5px solid rgba(255,255,255,0.15);
-                color:var(--text-muted);
-                font-size:10px;
-                padding:2px 8px;
-                border-radius:20px;
-                cursor:pointer;
-                white-space:nowrap;
-                margin-left:8px;
-                flex-shrink:0;
-            ">✓ Resolve</button>
-        </div>
-        <div class="alert-meta">${alert.message?.substring(0, 80)}...</div>
-        <div class="alert-meta" style="margin-top:3px;opacity:0.6">
-            ${alert.createdAt ? new Date(alert.createdAt).toLocaleTimeString('en-IN') : 'Just now'} · ${alert.severity}
-        </div>
-        ${alert.severity === 'CRITICAL' ? `
-        <div class="ai-thinking" id="ai-thinking-${alert.id}">
-            <div class="ai-spinner"></div>
-            <span>🤖 Gemini analyzing root cause...</span>
-        </div>` : ''}`;
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="alert-title">${alert.ruleType?.replace(/_/g,' ')} — ${alert.supplierName || alert.supplier?.name || 'Unknown'}</div>
+        <button onclick="resolveAlert(${alert.id})" style="
+            background:rgba(255,255,255,0.08);
+            border:0.5px solid rgba(255,255,255,0.15);
+            color:var(--text-muted);
+            font-size:10px;
+            padding:2px 8px;
+            border-radius:20px;
+            cursor:pointer;
+            white-space:nowrap;
+            margin-left:8px;
+            flex-shrink:0;
+        ">✓ Resolve</button>
+    </div>
+    <div class="alert-meta">${alert.message?.substring(0, 80)}...</div>
+    <div class="alert-meta" style="margin-top:3px;opacity:0.6">
+        ${alert.createdAt ? new Date(alert.createdAt).toLocaleTimeString('en-IN') : 'Just now'} · ${alert.severity}
+    </div>
+    ${aiSection}`;
 
         feed.insertBefore(div, feed.firstChild);
 

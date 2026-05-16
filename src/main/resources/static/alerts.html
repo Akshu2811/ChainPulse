@@ -373,17 +373,23 @@
         if (alert.severity !== 'CRITICAL') {
             return '<span style="color:var(--text-muted);font-size:10px">—</span>';
         }
-        const stored = aiAnalysisStore[alert.id];
-        if (stored) {
+
+        // Check DB-stored analysis first
+        const analysis = alert.aiAnalysis || aiAnalysisStore[alert.id];
+
+        if (analysis && analysis.trim().length > 0) {
+            // Store in memory too for WebSocket updates
+            aiAnalysisStore[alert.id] = analysis;
             return `
-            <div>
-                <span class="ai-badge" onclick="toggleAiExpand(${alert.id})">🤖 View analysis</span>
-                <div class="ai-expand" id="ai-expand-${alert.id}">${escapeHtml(stored)}</div>
-            </div>`;
+        <div>
+            <span class="ai-badge" onclick="toggleAiExpand(${alert.id})">🤖 View analysis</span>
+            <div class="ai-expand" id="ai-expand-${alert.id}">${escapeHtml(analysis)}</div>
+        </div>`;
         }
+
+        // No analysis yet — show spinner
         return `<div class="ai-thinking-cell"><div class="ai-spinner-sm"></div><span>Analyzing...</span></div>`;
     }
-
     function toggleAiExpand(alertId) {
         const el = document.getElementById(`ai-expand-${alertId}`);
         if (!el) return;

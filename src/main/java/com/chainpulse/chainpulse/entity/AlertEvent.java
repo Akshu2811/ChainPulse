@@ -102,6 +102,14 @@ public class AlertEvent {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    /**
+     * AI-generated root cause analysis from Gemini.
+     * Populated asynchronously after a CRITICAL alert fires.
+     * Stored so it's never regenerated for the same alert.
+     */
+    @Column(name = "ai_analysis", length = 8000)
+    private String aiAnalysis;
+
     @PrePersist
     public void prePersist() {
         this.createdAt = LocalDateTime.now();

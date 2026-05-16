@@ -3,10 +3,12 @@ package com.chainpulse.chainpulse.repository;
 import com.chainpulse.chainpulse.entity.AlertEvent;
 import com.chainpulse.chainpulse.entity.SlaRule;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.data.repository.query.Param;
 
 /**
  * AlertEventRepository — handles all database operations for AlertEvent.
@@ -49,4 +51,15 @@ public interface AlertEventRepository extends JpaRepository<AlertEvent, Long> {
      * disruption trend chart on the dashboard (last 7 days).
      */
     List<AlertEvent> findByCreatedAtAfter(LocalDateTime since);
+
+    List<AlertEvent> findBySeverityAndAiAnalysisIsNullAndResolvedFalse(
+            SlaRule.AlertSeverity severity
+    );
+    @Modifying
+    @Query("DELETE FROM AlertEvent a WHERE a.resolved = true AND a.createdAt < :cutoff")
+    int deleteByResolvedTrueAndCreatedAtBefore(@Param("cutoff") LocalDateTime cutoff);
+
+    @Modifying
+    @Query("DELETE FROM AlertEvent a WHERE a.resolved = false AND a.createdAt < :cutoff")
+    int deleteByResolvedFalseAndCreatedAtBefore(@Param("cutoff") LocalDateTime cutoff);
 }
