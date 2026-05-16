@@ -287,6 +287,7 @@ The app starts on `http://localhost:8080`. The simulator begins firing events im
 SLA rules are automatically seeded on first run via `data.sql` —
 no manual setup required. Rules include MAX_TRANSIT_HOURS (48h),
 CHECKPOINT_TIMEOUT (4h), and DELIVERY_DEADLINE_MISS.
+
 ---
 
 ## API Documentation
